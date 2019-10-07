@@ -14,7 +14,7 @@ from scipy.signal import savgol_filter
 from karabo_data import by_index
 
 from ..helpers import parse_le, parse_ids, pulse_filter
-from ..processor import DataProcessing
+from ..processor import DataProcessing, DataModel, eval_statistics
 
 
 def f(x):
@@ -29,8 +29,7 @@ class Display:
         self._cntrl = widgets.Tab()
         self.config = config
         self.futures = {}
-        self.dark_data = {}
-        self.processed_data = {}
+        self.data_model = {}
         self._initUI()
 
     def _initUI(self):
@@ -95,8 +94,8 @@ class Display:
             flex_flow='row',
             justify_content='space-between')
 
-        self._module_numbers = widgets.Text(value="15, 14",
-                                            readout=str)
+        self._module_numbers = widgets.Text(readout=str,
+                                            continuous_update=False)
         self._pulse_indices = widgets.Text(value="1:250:2")
         self._roi_x = widgets.Text(value=":")
         self._roi_y = widgets.Text(value=":")
@@ -120,11 +119,19 @@ class Display:
         ))
 
         self._module_numbers.observe(self.onModuleNumbersChange, 'value')
+        self._module_numbers.value = "15, 14" # Set to emit signal
         return general_params
 
     def onModuleNumbersChange(self, value):
+        options_old = set(self._module_dd.options)
         try:
             options = parse_ids(value['new'])
+            options_new = set(options)
+            for option in options_new:
+                self.data_model[option] = DataModel()
+            for old in options_old.difference(options_new):
+                if old != '-':
+                    del self.data_model[old]
             self._module_dd.options = options
         except ValueError:
             pass
@@ -206,66 +213,59 @@ class Display:
     def onVisulizationParamChange(self, value):
         modno = self._module_dd.value
         if self._cntrl.selected_index == 1:
-            if not self.dark_data \
-                    or not isinstance(self.dark_data[modno], np.ndarray):
+            image = self.data_model[modno].dark_data.image
+            if image is None:
                 return
             else:
                 pid = self._memory_sl.value
-                shape = self.dark_data[modno].shape
+                shape = image.shape
 
                 if pid > shape[0] - 1:
                     return
 
-                hist, bin_edges = np.histogram(
-                    self.dark_data[modno][pid, 0, ...].ravel(), bins=100)
+                centers, counts = eval_statistics(image[pid, 0, ...], bins=100)
 
-                bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2.0
-
-                self._dark_image_widget.data[0].z = \
-                    self.dark_data[modno][pid, 0, ...]
+                self._dark_image_widget.data[0].z = image[pid, 0, ...]
 
                 self._dark_image_widget.data[0].colorscale = \
                     self._cmaps_list.value
 
-                self._dark_hist_widget.data[0].x = bin_centers
-                self._dark_hist_widget.data[0].y = hist
+                self._dark_hist_widget.data[0].x = centers
+                self._dark_hist_widget.data[0].y = counts
 
         elif self._cntrl.selected_index == 2:
-            if not self.processed_data \
-                    or not isinstance(self.processed_data[modno], np.ndarray):
+            images = self.data_model[modno].proc_data.image
+            if images is None:
                 return
             else:
                 pid = self._memory_sl.value
-                shape = self.processed_data[modno].shape
+                shape = images.shape
 
-                if pid > shape[0] - 1:
+                if pid > shape[1] - 1:
                     return
 
-                hist, bin_edges = np.histogram(
-                    self.processed_data[modno][:, pid, 0, ...].ravel(),
-                    bins=1000)
+                centers, counts = eval_statistics(
+                    images[:, pid, 0, ...], bins=1000)
 
-                bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2.0
-
-                self._proc_image_widget.data[0].z = \
-                    np.mean(self.processed_data[modno][:, pid, 0, ...], axis=0)
+                self._proc_image_widget.data[0].z = np.mean(
+                    images[:, pid, 0, ...], axis=0)
 
                 self._proc_image_widget.data[0].colorscale = \
                     self._cmaps_list.value
 
-                self._proc_hist_widget.data[0].x = bin_centers
-                self._proc_hist_widget.data[0].y = hist
+                self._proc_hist_widget.data[0].x = centers
+                self._proc_hist_widget.data[0].y = counts
 
-                filtered = gaussian_filter(hist, 1.5)
+                filtered = gaussian_filter(counts, 1.5)
                 peaks, _ = find_peaks(
                     filtered,
                     height=self._peak_threshold_sl.value,
                     distance=self._peak_distance_sl.value)
 
-                self._proc_hist_widget.data[1].x = bin_centers
+                self._proc_hist_widget.data[1].x = centers
                 self._proc_hist_widget.data[1].y = filtered
 
-                self._proc_hist_widget.data[2].x = bin_centers[peaks]
+                self._proc_hist_widget.data[2].x = centers[peaks]
                 self._proc_hist_widget.data[2].y = filtered[peaks]
         else:
             pass
@@ -432,17 +432,17 @@ class Display:
                 print('{}: error returned: {}'.format(
                     future.arg, error))
             else:
-                self.dark_data[future.arg] = future.result()
+                self.data_model[future.arg].dark_data.image = future.result()
+
                 if future.arg == self._module_dd.value:
                     pid = self._memory_sl.value
-                    hist, bin_edges = np.histogram(
-                        self.dark_data[future.arg][pid, 0, ...].ravel(),
-                        bins=100)
-                    bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2.0
-                    self._dark_image_widget.data[0].z = \
-                        self.dark_data[future.arg][pid, 0, ...]
-                    self._dark_hist_widget.data[0].x = bin_centers
-                    self._dark_hist_widget.data[0].y = hist
+
+                    image = self.data_model[future.arg].dark_data.image[pid, 0, ...]
+
+                    counts, centers = eval_statistics(image)
+                    self._dark_image_widget.data[0].z = image
+                    self._dark_hist_widget.data[0].x = centers
+                    self._dark_hist_widget.data[0].y = counts
 
         self._process_dark.disabled = False
         self._subtract_dark_cb.disabled = False
@@ -478,7 +478,9 @@ class Display:
 
         dark_run = None
         if self._subtract_dark_cb.value:
-            dark_run = self.dark_data
+            dark_run = {key:value.dark_data.image for key, value in self.data_model.items() }
+            # dark_run = self.dark_data
+
 
         eval_ = partial(
             DataProcessing,
@@ -505,24 +507,24 @@ class Display:
 
     def onProcessingDone(self, future):
         if future.cancelled():
-            print('{}: canceled'.format(future.arg))
+            print('{}: cancelled'.format(future.arg))
         elif future.done():
             error = future.exception()
             if error:
                 print('{}: error returned: {}'.format(
                     future.arg, error))
             else:
-                self.processed_data[future.arg] = future.result()
+                self.data_model[future.arg].proc_data.image = future.result()
                 if future.arg == self._module_dd.value:
                     pid = self._memory_sl.value
-                    hist, bin_edges = np.histogram(
-                        self.processed_data[future.arg][:, pid, 0, ...].ravel(),
-                        bins=1000)
-                    bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2.0
+
+                    images = self.data_model[future.arg].proc_data.image[:, pid, 0, ...]
+
+                    centers, counts = eval_statistics(images, bins=1000)
                     self._proc_image_widget.data[0].z = np.mean(
-                        self.processed_data[future.arg][:, pid, 0, ...], axis=0)
-                    self._proc_hist_widget.data[0].x = bin_centers
-                    self._proc_hist_widget.data[0].y = hist
+                        images, axis=0)
+                    self._proc_hist_widget.data[0].x = centers
+                    self._proc_hist_widget.data[0].y = counts
 
         self._process_run.disabled = False
         self._fitting_bt.disabled = False
