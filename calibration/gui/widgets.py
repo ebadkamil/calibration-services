@@ -258,7 +258,9 @@ class Display:
 
                 filtered = gaussian_filter(hist, 1.5)
                 peaks, _ = find_peaks(
-                    filtered, height=self._peak_threshold_sl.value)
+                    filtered,
+                    height=self._peak_threshold_sl.value,
+                    distance=self._peak_distance_sl.value)
 
                 self._proc_hist_widget.data[1].x = bin_centers
                 self._proc_hist_widget.data[1].y = filtered
@@ -277,7 +279,7 @@ class Display:
 
         self._run_folder = widgets.Text(value=self.config['run_folder'])
 
-        self._process_run = Button(description='start')
+        self._process_run = Button(description='Load Run')
         self._process_run.on_click(self._on_process_run)
         self._process_run.button_style = 'success'
 
@@ -290,7 +292,20 @@ class Display:
             step=1.0,
             orientation='horizontal',
             readout_format='0.2f',)
+        self._peak_distance_sl = widgets.FloatSlider(
+            value=0,
+            min=1.0,
+            max=1000,
+            step=1.0,
+            orientation='horizontal',
+            readout_format='0.2f',)
+
+        self._fitting_bt = Button(description='Fit Histogram', disabled=True)
+        self._fitting_bt.on_click(self._on_fitting)
+
         self._peak_threshold_sl.observe(
+            self.onVisulizationParamChange, 'value')
+        self._peak_distance_sl.observe(
             self.onVisulizationParamChange, 'value')
         proc_items = [
             widgets.Box(
@@ -304,6 +319,10 @@ class Display:
             widgets.Box(
                 [widgets.Label(value='Peak Thresh.:'),
                  self._peak_threshold_sl],
+                layout=item_layout),
+            widgets.Box(
+                [widgets.Label(value='Peak Distance.:'),
+                 self._peak_distance_sl],
                 layout=item_layout)
         ]
 
@@ -318,7 +337,7 @@ class Display:
         proc_ctrl = widgets.VBox(
             [widgets.Label(value='Run Folder:'),
              self._run_folder,
-             self._process_run],
+             widgets.HBox([self._process_run, self._fitting_bt])],
             layout=widgets.Layout(
                 display='flex',
                 flex_flow='column',
@@ -481,6 +500,9 @@ class Display:
 
         self._process_run.disabled = True
 
+    def _on_fitting(self, e=None):
+        pass
+
     def onProcessingDone(self, future):
         if future.cancelled():
             print('{}: canceled'.format(future.arg))
@@ -503,6 +525,7 @@ class Display:
                     self._proc_hist_widget.data[0].y = hist
 
         self._process_run.disabled = False
+        self._fitting_bt.disabled = False
 
     def control_panel(self):
         display(self._visualization_widgets, self._cntrl)

@@ -69,7 +69,10 @@ def DataProcessing(module_number, path, *,
 
     counts = run.get_data_counts(module[0], "image.data")
     pulses = pulse_filter(pulse_ids, counts[counts != 0])
-
+    # TODO: Not a good way to load all data. Will replace with looping over
+    # trains while performing dark average. For getting dark subtracted
+    # train (one train or a range of trains) data, have to think about
+    # better way. (`next(run.trains())`)
     data = run.get_array(module[0], "image.data",
                          roi=rois).values[pulses, ...].astype(np.float32)
 
