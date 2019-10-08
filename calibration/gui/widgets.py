@@ -478,7 +478,9 @@ class Display:
 
         dark_run = None
         if self._subtract_dark_cb.value:
-            dark_run = {key:value.dark_data.image for key, value in self.data_model.items() }
+            dark_run = {
+                key:value.dark_data.image
+                for key, value in self.data_model.items()}
             # dark_run = self.dark_data
 
 
