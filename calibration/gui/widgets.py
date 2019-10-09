@@ -120,7 +120,7 @@ class Display:
         ))
 
         self._module_numbers.observe(self.onModuleNumbersChange, 'value')
-        self._module_numbers.value = "15, 14" # Set to emit signal
+        self._module_numbers.value = "15, 14"  # Set to emit signal
         return general_params
 
     def onModuleNumbersChange(self, value):
@@ -181,15 +181,12 @@ class Display:
             data=go.Heatmap(showscale=False))
         self._dark_hist_widget = go.FigureWidget(data=go.Bar())
 
-        self._plot_widgets = widgets.VBox(
-            [self._dark_hist_widget,
-             self._dark_image_widget,],
-            layout=widgets.Layout(
-                display='flex',
-                flex_flow='column',
-                align_items='stretch',
-                width='100%',
-                justify_content='space-between'))
+        self._plot_widgets = widgets.HBox(
+            [self._dark_image_widget,
+             self._dark_hist_widget
+             ])
+        self._dark_image_widget.layout.update(margin=dict(l=0), width=450)
+        self._dark_hist_widget.layout.update(margin=dict(r=0, l=10), width=450)
 
         self._ctrl_widget = widgets.HBox(
             [dark_ctrl,
@@ -239,7 +236,8 @@ class Display:
             centers = self.data_model[modno].proc_data.st.bin_centers
             counts = self.data_model[modno].proc_data.st.bin_counts
 
-            if images is None:
+            if not all(
+                    [images is not None, centers is not None, counts is not None]):
                 return
             else:
                 pid = self._memory_sl.value
@@ -262,9 +260,6 @@ class Display:
                     self.filtered,
                     height=self._peak_threshold_sl.value,
                     distance=self._peak_distance_sl.value)
-
-                self._proc_hist_widget.data[1].x = centers[pid]
-                self._proc_hist_widget.data[1].y = self.filtered
 
                 self._proc_hist_widget.data[2].x = centers[pid][self.peaks]
                 self._proc_hist_widget.data[2].y = self.filtered[self.peaks]
@@ -292,14 +287,16 @@ class Display:
             max=100000,
             step=1.0,
             orientation='horizontal',
-            readout_format='0.2f',)
+            readout_format='0.2f',
+            continuous_update=False)
         self._peak_distance_sl = widgets.FloatSlider(
             value=0,
             min=1.0,
             max=1000,
             step=1.0,
             orientation='horizontal',
-            readout_format='0.2f',)
+            readout_format='0.2f',
+            continuous_update=False)
 
         self._fitting_bt = Button(description='Fit Histogram', disabled=True)
         self._fitting_bt.on_click(self._on_fitting)
@@ -353,15 +350,13 @@ class Display:
                  go.Scatter(mode='markers')]
         self._proc_hist_widget = go.FigureWidget(data=trace)
 
-        self._proc_plot_widgets = widgets.VBox(
-            [self._proc_hist_widget,
-             self._proc_image_widget],
-            layout=widgets.Layout(
-                display='flex',
-                flex_flow='column',
-                align_items='stretch',
-                width='100%',
-                justify_content='space-between'))
+        self._proc_image_widget.layout.update(margin=dict(l=0),width=450)
+        self._proc_hist_widget.layout.update(margin=dict(r=0, l=10),width=450)
+
+        self._proc_plot_widgets = widgets.HBox(
+            [self._proc_image_widget,
+             self._proc_hist_widget
+             ])
 
         self._proc_ctrl_widget = widgets.HBox(
             [proc_ctrl,
@@ -494,10 +489,9 @@ class Display:
         dark_run = None
         if self._subtract_dark_cb.value:
             dark_run = {
-                key:value.dark_data.image
+                key: value.dark_data.image
                 for key, value in self.data_model.items()}
             # dark_run = self.dark_data
-
 
         eval_ = partial(
             DataProcessing,
