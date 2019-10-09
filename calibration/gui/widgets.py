@@ -53,7 +53,8 @@ class Display:
             step=1,
             orientation='horizontal',
             readout_format='d',
-            description="Pulses:")
+            description="Pulses:",
+            continuous_update=False)
 
         items_vis_params = [
             self._cmaps_list,
@@ -235,9 +236,9 @@ class Display:
             images = self.data_model[modno].proc_data.image
             centers = self.data_model[modno].proc_data.st.bin_centers
             counts = self.data_model[modno].proc_data.st.bin_counts
-
-            if not all(
-                    [images is not None, centers is not None, counts is not None]):
+            if not all([images is not None,
+                        centers is not None,
+                        counts is not None]):
                 return
             else:
                 pid = self._memory_sl.value
@@ -245,6 +246,9 @@ class Display:
 
                 if pid > shape[0] - 1:
                     return
+
+                self._proc_hist_widget.data[1].x = []
+                self._proc_hist_widget.data[1].y = []
 
                 self._proc_image_widget.data[0].z = np.mean(
                     images[pid, :, 0, ...], axis=0)
@@ -350,8 +354,8 @@ class Display:
                  go.Scatter(mode='markers')]
         self._proc_hist_widget = go.FigureWidget(data=trace)
 
-        self._proc_image_widget.layout.update(margin=dict(l=0),width=450)
-        self._proc_hist_widget.layout.update(margin=dict(r=0, l=10),width=450)
+        self._proc_image_widget.layout.update(margin=dict(l=0), width=450)
+        self._proc_hist_widget.layout.update(margin=dict(r=0, l=10), width=450)
 
         self._proc_plot_widgets = widgets.HBox(
             [self._proc_image_widget,
@@ -429,24 +433,23 @@ class Display:
                     future.arg, error))
             else:
                 self.data_model[future.arg].dark_data.image = future.result()
+                images = self.data_model[future.arg].dark_data.image
+                centers_pr = []
+                counts_pr = []
+                # TODO: Use ThreadPool
+                for pulse in range(images.shape[0]):
+                    centers, counts = eval_statistics(
+                        images[pulse, 0, ...], bins=1000)
+                    centers_pr.append(centers)
+                    counts_pr.append(counts)
+
+                self.data_model[future.arg].dark_data.st.bin_centers = \
+                    np.stack(centers_pr)
+                self.data_model[future.arg].dark_data.st.bin_counts = \
+                    np.stack(counts_pr)
 
                 if future.arg == self._module_dd.value:
                     pid = self._memory_sl.value
-
-                    images = self.data_model[future.arg].dark_data.image
-                    centers_pr = []
-                    counts_pr = []
-                    # TODO: Use ThreadPool
-                    for pulse in range(images.shape[0]):
-                        centers, counts = eval_statistics(
-                            images[pulse, 0, ...], bins=1000)
-                        centers_pr.append(centers)
-                        counts_pr.append(counts)
-
-                    self.data_model[future.arg].dark_data.st.bin_centers = \
-                        np.stack(centers_pr)
-                    self.data_model[future.arg].dark_data.st.bin_counts = \
-                        np.stack(counts_pr)
 
                     self._dark_image_widget.data[0].z = images[pid, 0, ...]
                     self._dark_hist_widget.data[0].x = \
@@ -547,23 +550,23 @@ class Display:
             else:
                 self.data_model[future.arg].proc_data.image = \
                     np.moveaxis(future.result(), 0, 1)
+                images = self.data_model[future.arg].proc_data.image
+                centers_pr = []
+                counts_pr = []
+                # TODO: Use ThreadPool
+                for pulse in range(images.shape[0]):
+                    centers, counts = eval_statistics(
+                        images[pulse, :, 0, ...], bins=1000)
+                    centers_pr.append(centers)
+                    counts_pr.append(counts)
+
+                self.data_model[future.arg].proc_data.st.bin_centers = \
+                    np.stack(centers_pr)
+                self.data_model[future.arg].proc_data.st.bin_counts = \
+                    np.stack(counts_pr)
+
                 if future.arg == self._module_dd.value:
                     pid = self._memory_sl.value
-
-                    images = self.data_model[future.arg].proc_data.image
-                    centers_pr = []
-                    counts_pr = []
-                    # TODO: Use ThreadPool
-                    for pulse in range(images.shape[0]):
-                        centers, counts = eval_statistics(
-                            images[pulse, :, 0, ...], bins=1000)
-                        centers_pr.append(centers)
-                        counts_pr.append(counts)
-
-                    self.data_model[future.arg].proc_data.st.bin_centers = \
-                        np.stack(centers_pr)
-                    self.data_model[future.arg].proc_data.st.bin_counts = \
-                        np.stack(counts_pr)
 
                     self._proc_image_widget.data[0].z = np.mean(
                         images[pid, :, 0, ...], axis=0)
