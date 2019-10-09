@@ -14,7 +14,7 @@ from scipy.signal import savgol_filter
 from karabo_data import by_index
 
 from ..helpers import parse_le, parse_ids, pulse_filter
-from ..processor import DataProcessing, DataModel, eval_statistics
+from ..processor import DataProcessing, DataModel, eval_statistics, gauss_fit
 
 
 def f(x):
@@ -30,6 +30,7 @@ class Display:
         self.config = config
         self.futures = {}
         self.data_model = {}
+        self.filtered = None
         self._initUI()
 
     def _initUI(self):
@@ -235,38 +236,38 @@ class Display:
 
         elif self._cntrl.selected_index == 2:
             images = self.data_model[modno].proc_data.image
+            centers = self.data_model[modno].proc_data.st.bin_centers
+            counts = self.data_model[modno].proc_data.st.bin_counts
+
             if images is None:
                 return
             else:
                 pid = self._memory_sl.value
                 shape = images.shape
 
-                if pid > shape[1] - 1:
+                if pid > shape[0] - 1:
                     return
 
-                centers, counts = eval_statistics(
-                    images[:, pid, 0, ...], bins=1000)
-
                 self._proc_image_widget.data[0].z = np.mean(
-                    images[:, pid, 0, ...], axis=0)
+                    images[pid, :, 0, ...], axis=0)
 
                 self._proc_image_widget.data[0].colorscale = \
                     self._cmaps_list.value
 
-                self._proc_hist_widget.data[0].x = centers
-                self._proc_hist_widget.data[0].y = counts
+                self._proc_hist_widget.data[0].x = centers[pid]
+                self._proc_hist_widget.data[0].y = counts[pid]
 
-                filtered = gaussian_filter(counts, 1.5)
-                peaks, _ = find_peaks(
-                    filtered,
+                self.filtered = gaussian_filter(counts[pid], 1.5)
+                self.peaks, _ = find_peaks(
+                    self.filtered,
                     height=self._peak_threshold_sl.value,
                     distance=self._peak_distance_sl.value)
 
-                self._proc_hist_widget.data[1].x = centers
-                self._proc_hist_widget.data[1].y = filtered
+                self._proc_hist_widget.data[1].x = centers[pid]
+                self._proc_hist_widget.data[1].y = self.filtered
 
-                self._proc_hist_widget.data[2].x = centers[peaks]
-                self._proc_hist_widget.data[2].y = filtered[peaks]
+                self._proc_hist_widget.data[2].x = centers[pid][self.peaks]
+                self._proc_hist_widget.data[2].y = self.filtered[self.peaks]
         else:
             pass
 
@@ -437,12 +438,26 @@ class Display:
                 if future.arg == self._module_dd.value:
                     pid = self._memory_sl.value
 
-                    image = self.data_model[future.arg].dark_data.image[pid, 0, ...]
+                    images = self.data_model[future.arg].dark_data.image
+                    centers_pr = []
+                    counts_pr = []
+                    # TODO: Use ThreadPool
+                    for pulse in range(images.shape[0]):
+                        centers, counts = eval_statistics(
+                            images[pulse, 0, ...], bins=1000)
+                        centers_pr.append(centers)
+                        counts_pr.append(counts)
 
-                    counts, centers = eval_statistics(image)
-                    self._dark_image_widget.data[0].z = image
-                    self._dark_hist_widget.data[0].x = centers
-                    self._dark_hist_widget.data[0].y = counts
+                    self.data_model[future.arg].dark_data.st.bin_centers = \
+                        np.stack(centers_pr)
+                    self.data_model[future.arg].dark_data.st.bin_counts = \
+                        np.stack(counts_pr)
+
+                    self._dark_image_widget.data[0].z = images[pid, 0, ...]
+                    self._dark_hist_widget.data[0].x = \
+                        self.data_model[future.arg].dark_data.st.bin_centers[pid]
+                    self._dark_hist_widget.data[0].y = \
+                        self.data_model[future.arg].dark_data.st.bin_counts[pid]
 
         self._process_dark.disabled = False
         self._subtract_dark_cb.disabled = False
@@ -505,7 +520,27 @@ class Display:
         self._process_run.disabled = True
 
     def _on_fitting(self, e=None):
-        pass
+
+        if self.filtered is None:
+            return
+
+        params = []
+        pid = self._memory_sl.value
+        mod_no = self._module_dd.value
+
+        bin_centers = self.data_model[mod_no].proc_data.st.bin_centers
+        if pid > bin_centers.shape[0] - 1:
+            return
+
+        sigma = np.full((len(bin_centers[pid][self.peaks])), 10)
+        params.extend(self.filtered[self.peaks])
+        params.extend(sigma)
+        params.extend(bin_centers[pid][self.peaks])
+        fit_data = gauss_fit(bin_centers[pid], self.filtered, params)
+
+        if fit_data is not None:
+            self._proc_hist_widget.data[1].x = bin_centers[pid]
+            self._proc_hist_widget.data[1].y = fit_data
 
     def onProcessingDone(self, future):
         if future.cancelled():
@@ -516,17 +551,32 @@ class Display:
                 print('{}: error returned: {}'.format(
                     future.arg, error))
             else:
-                self.data_model[future.arg].proc_data.image = future.result()
+                self.data_model[future.arg].proc_data.image = \
+                    np.moveaxis(future.result(), 0, 1)
                 if future.arg == self._module_dd.value:
                     pid = self._memory_sl.value
 
-                    images = self.data_model[future.arg].proc_data.image[:, pid, 0, ...]
+                    images = self.data_model[future.arg].proc_data.image
+                    centers_pr = []
+                    counts_pr = []
+                    # TODO: Use ThreadPool
+                    for pulse in range(images.shape[0]):
+                        centers, counts = eval_statistics(
+                            images[pulse, :, 0, ...], bins=1000)
+                        centers_pr.append(centers)
+                        counts_pr.append(counts)
 
-                    centers, counts = eval_statistics(images, bins=1000)
+                    self.data_model[future.arg].proc_data.st.bin_centers = \
+                        np.stack(centers_pr)
+                    self.data_model[future.arg].proc_data.st.bin_counts = \
+                        np.stack(counts_pr)
+
                     self._proc_image_widget.data[0].z = np.mean(
-                        images, axis=0)
-                    self._proc_hist_widget.data[0].x = centers
-                    self._proc_hist_widget.data[0].y = counts
+                        images[pid, :, 0, ...], axis=0)
+                    self._proc_hist_widget.data[0].x = \
+                        self.data_model[future.arg].proc_data.st.bin_centers[pid]
+                    self._proc_hist_widget.data[0].y = \
+                        self.data_model[future.arg].proc_data.st.bin_counts[pid]
 
         self._process_run.disabled = False
         self._fitting_bt.disabled = False

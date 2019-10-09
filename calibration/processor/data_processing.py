@@ -2,6 +2,7 @@ import os.path as osp
 import os
 import re
 import numpy as np
+from scipy.optimize import curve_fit
 
 from ..helpers import pulse_filter, parse_ids
 from karabo_data import DataCollection, by_index
@@ -121,3 +122,21 @@ def eval_statistics(image, bins=None):
     centers = (edges[1:] + edges[:-1]) / 2.0
     return centers, counts
 
+
+def gaussian(x, *params):
+    num_gaussians = int(len(params) / 3)
+    A = params[:num_gaussians]
+    w = params[num_gaussians:2*num_gaussians]
+    c = params[2*num_gaussians:3*num_gaussians]
+    y = sum([A[i]*np.exp(-(x-c[i])**2./(w[i])) for i in range(num_gaussians)])
+    return y
+
+
+def gauss_fit(xdata, ydata, params):
+    try:
+        popt, pcov = curve_fit(gaussian, xdata, ydata, p0=params)
+        return np.array([gaussian(x, *popt) for x in xdata])
+
+    except Exception as ex:
+        print(ex)
+        return

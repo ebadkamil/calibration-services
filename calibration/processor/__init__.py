@@ -1,7 +1,8 @@
-from .data_processing import DataProcessing, DataModel, eval_statistics
+from .data_processing import DataProcessing, DataModel, eval_statistics, gauss_fit
 
 __all__ = [
     "DataProcessing",
     "DataModel",
-    "eval_statistics"
+    "eval_statistics",
+    "gauss_fit"
     ]
