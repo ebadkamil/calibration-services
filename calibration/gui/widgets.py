@@ -267,6 +267,9 @@ class Display:
 
                 self._proc_hist_widget.data[2].x = centers[pid][self.peaks]
                 self._proc_hist_widget.data[2].y = self.filtered[self.peaks]
+
+                self._proc_fit_params_widget.data[0].cells.values = \
+                    [centers[pid][self.peaks], self.filtered[self.peaks], []]
         else:
             pass
 
@@ -357,10 +360,25 @@ class Display:
         self._proc_image_widget.layout.update(margin=dict(l=0), width=450)
         self._proc_hist_widget.layout.update(margin=dict(r=0, l=10), width=450)
 
-        self._proc_plot_widgets = widgets.HBox(
-            [self._proc_image_widget,
-             self._proc_hist_widget
-             ])
+        trace = [go.Table(
+            header=dict(values=["Positions", "Amplitudes", "Width"],
+                        fill_color='paleturquoise',
+                        align='left'),
+            cells=dict(
+                fill_color='lavender',
+                align='left'))]
+
+        self._proc_fit_params_widget = go.FigureWidget(data=trace)
+        self._proc_fit_params_widget.layout.update(
+            margin=dict(l=0),
+            width=900,
+            height=400)
+        self._proc_plot_widgets = widgets.VBox(
+            [widgets.HBox(
+                [self._proc_image_widget,
+                 self._proc_hist_widget]),
+            self._proc_fit_params_widget
+            ])
 
         self._proc_ctrl_widget = widgets.HBox(
             [proc_ctrl,
@@ -377,34 +395,34 @@ class Display:
              self._proc_plot_widgets])
 
     def _on_process_dark(self, e=None):
-        path = self._dark_run_folder.value
-        pulse_ids = str(self._pulse_indices.value)
+        path=self._dark_run_folder.value
+        pulse_ids=str(self._pulse_indices.value)
 
-        train_indices = parse_le(str(self._train_ids.value))
+        train_indices=parse_le(str(self._train_ids.value))
 
         if train_indices == [-1]:
-            train_index = None
+            train_index=None
         else:
-            start, stop = train_indices
-            train_index = by_index[start:stop]
+            start, stop=train_indices
+            train_index=by_index[start:stop]
 
-        roi_x = parse_le(str(self._roi_x.value))
-        roi_y = parse_le(str(self._roi_y.value))
+        roi_x=parse_le(str(self._roi_x.value))
+        roi_y=parse_le(str(self._roi_y.value))
 
         if roi_x == [-1] and roi_y == [-1]:
-            rois = None
+            rois=None
         elif roi_x == [-1] and roi_y != [-1]:
-            start_y, stop_y = roi_y
-            rois = by_index[..., :, start_y:stop_y]
+            start_y, stop_y=roi_y
+            rois=by_index[..., :, start_y:stop_y]
         elif roi_x != [-1] and roi_y == [-1]:
-            start_x, stop_x = roi_x
-            rois = by_index[..., start_x:stop_x, :]
+            start_x, stop_x=roi_x
+            rois=by_index[..., start_x:stop_x, :]
         else:
-            start_x, stop_x = roi_x
-            start_y, stop_y = roi_y
-            rois = by_index[..., start_x:stop_x, start_y:stop_y]
+            start_x, stop_x=roi_x
+            start_y, stop_y=roi_y
+            rois=by_index[..., start_x:stop_x, start_y:stop_y]
 
-        eval_dark_average = partial(
+        eval_dark_average=partial(
             DataProcessing,
             path=path,
             pulse_ids=pulse_ids,
@@ -421,7 +439,7 @@ class Display:
             futures[mod_no].arg = mod_no
             futures[mod_no].add_done_callback(self.onProcessDarkDone)
 
-        self._process_dark.disabled = True
+        self._process_dark.disabled=True
 
     def onProcessDarkDone(self, future):
         if future.cancelled():
@@ -432,10 +450,10 @@ class Display:
                 print('{}: error returned: {}'.format(
                     future.arg, error))
             else:
-                self.data_model[future.arg].dark_data.image = future.result()
+                self.data_model[future.arg].dark_data.image=future.result()
                 images = self.data_model[future.arg].dark_data.image
-                centers_pr = []
-                counts_pr = []
+                centers_pr=[]
+                counts_pr=[]
                 # TODO: Use ThreadPool
                 for pulse in range(images.shape[0]):
                     centers, counts = eval_statistics(
@@ -443,10 +461,10 @@ class Display:
                     centers_pr.append(centers)
                     counts_pr.append(counts)
 
-                self.data_model[future.arg].dark_data.st.bin_centers = \
-                    np.stack(centers_pr)
-                self.data_model[future.arg].dark_data.st.bin_counts = \
-                    np.stack(counts_pr)
+                self.data_model[future.arg].dark_data.st.bin_centers = np.stack(
+                    centers_pr)
+                self.data_model[future.arg].dark_data.st.bin_counts = np.stack(
+                    counts_pr)
 
                 if future.arg == self._module_dd.value:
                     pid = self._memory_sl.value
@@ -479,7 +497,7 @@ class Display:
         if roi_x == [-1] and roi_y == [-1]:
             rois = None
         elif roi_x == [-1] and roi_y != [-1]:
-            start_y, stop_y = roi_y
+            start_y, stop_y=roi_y
             rois = by_index[..., :, start_y:stop_y]
         elif roi_x != [-1] and roi_y == [-1]:
             start_x, stop_x = roi_x
@@ -494,7 +512,6 @@ class Display:
             dark_run = {
                 key: value.dark_data.image
                 for key, value in self.data_model.items()}
-            # dark_run = self.dark_data
 
         eval_ = partial(
             DataProcessing,
@@ -511,10 +528,10 @@ class Display:
         futures = {}
         for mod_no in module_numbers:
             futures[mod_no] = executor.submit(eval_, mod_no)
-            futures[mod_no].arg = mod_no
+            futures[mod_no].arg=mod_no
             futures[mod_no].add_done_callback(self.onProcessingDone)
 
-        self._process_run.disabled = True
+        self._process_run.disabled=True
 
     def _on_fitting(self, e=None):
 
@@ -533,23 +550,32 @@ class Display:
         params.extend(self.filtered[self.peaks])
         params.extend(sigma)
         params.extend(bin_centers[pid][self.peaks])
-        fit_data = gauss_fit(bin_centers[pid], self.filtered, params)
+
+        fit_data, popt, perr = gauss_fit(
+            bin_centers[pid], self.filtered, params)
 
         if fit_data is not None:
             self._proc_hist_widget.data[1].x = bin_centers[pid]
             self._proc_hist_widget.data[1].y = fit_data
 
+            table_elements = [
+                f"{i:.2f}" + " +/- " + f"{j:.2f}" for i, j in zip(popt, perr)]
+            table_elements = np.split(np.array(table_elements), 3)
+
+            self._proc_fit_params_widget.data[0].cells.values = \
+                [table_elements[2], table_elements[0], table_elements[1]]
+
     def onProcessingDone(self, future):
         if future.cancelled():
             print('{}: cancelled'.format(future.arg))
         elif future.done():
-            error = future.exception()
+            error=future.exception()
             if error:
                 print('{}: error returned: {}'.format(
                     future.arg, error))
             else:
-                self.data_model[future.arg].proc_data.image = \
-                    np.moveaxis(future.result(), 0, 1)
+                self.data_model[future.arg].proc_data.image = np.moveaxis(
+                    future.result(), 0, 1)
                 images = self.data_model[future.arg].proc_data.image
                 centers_pr = []
                 counts_pr = []
@@ -560,10 +586,10 @@ class Display:
                     centers_pr.append(centers)
                     counts_pr.append(counts)
 
-                self.data_model[future.arg].proc_data.st.bin_centers = \
-                    np.stack(centers_pr)
-                self.data_model[future.arg].proc_data.st.bin_counts = \
-                    np.stack(counts_pr)
+                self.data_model[future.arg].proc_data.st.bin_centers = np.stack(
+                    centers_pr)
+                self.data_model[future.arg].proc_data.st.bin_counts = np.stack(
+                    counts_pr)
 
                 if future.arg == self._module_dd.value:
                     pid = self._memory_sl.value
