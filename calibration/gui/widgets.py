@@ -186,8 +186,10 @@ class Display:
             [self._dark_image_widget,
              self._dark_hist_widget
              ])
-        self._dark_image_widget.layout.update(margin=dict(l=0), width=450)
-        self._dark_hist_widget.layout.update(margin=dict(r=0, l=10), width=450)
+        self._dark_image_widget.layout.update(
+            margin=dict(l=0, b=40, t=50), width=450)
+        self._dark_hist_widget.layout.update(
+            margin=dict(r=0, l=10, b=40, t=50), width=450)
 
         self._ctrl_widget = widgets.HBox(
             [dark_ctrl,
@@ -357,22 +359,26 @@ class Display:
                  go.Scatter(mode='markers')]
         self._proc_hist_widget = go.FigureWidget(data=trace)
 
-        self._proc_image_widget.layout.update(margin=dict(l=0), width=450)
-        self._proc_hist_widget.layout.update(margin=dict(r=0, l=10), width=450)
+        self._proc_image_widget.layout.update(
+            margin=dict(l=0, b=40, t=50), width=450)
+        self._proc_hist_widget.layout.update(
+            margin=dict(r=0, l=10, b=40, t=50), width=450)
 
         trace = [go.Table(
             header=dict(values=["Positions", "Amplitudes", "Width"],
                         fill_color='paleturquoise',
-                        align='left'),
+                        align='center'),
             cells=dict(
                 fill_color='lavender',
                 align='left'))]
 
         self._proc_fit_params_widget = go.FigureWidget(data=trace)
         self._proc_fit_params_widget.layout.update(
-            margin=dict(l=0),
+            margin=dict(l=0, b=0, t=50),
             width=900,
-            height=400)
+            height=400,
+            title="Peaks Info.",
+            )
         self._proc_plot_widgets = widgets.VBox(
             [widgets.HBox(
                 [self._proc_image_widget,
