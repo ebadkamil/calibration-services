@@ -74,8 +74,12 @@ def DataProcessing(module_number, path, *,
     # trains while performing dark average. For getting dark subtracted
     # train (one train or a range of trains) data, have to think about
     # better way. (`next(run.trains())`)
+
     data = run.get_array(module[0], "image.data",
                          roi=rois).values[pulses, ...].astype(np.float32)
+
+    if data.size == 0:
+        raise ValueError(f"Empty data array for train_index {train_index}")
 
     if dark_run is not None:
         dark_module = dark_run[module_number]

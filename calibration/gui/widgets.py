@@ -13,9 +13,9 @@ from scipy.signal import savgol_filter
 
 from karabo_data import by_index
 
+from .logger import out, logger
 from ..helpers import parse_le, parse_ids, pulse_filter
 from ..processor import DataProcessing, DataModel, eval_statistics, gauss_fit
-
 
 def f(x):
     return x
@@ -31,6 +31,7 @@ class Display:
         self.futures = {}
         self.data_model = {}
         self.filtered = None
+
         self._initUI()
 
     def _initUI(self):
@@ -212,6 +213,7 @@ class Display:
                 justify_content='space-between'))
 
     def onVisulizationParamChange(self, value):
+        logger.error("Starting program")
         modno = self._module_dd.value
         if self._cntrl.selected_index == 1:
             image = self.data_model[modno].dark_data.image
@@ -611,4 +613,4 @@ class Display:
         self._fitting_bt.disabled = False
 
     def control_panel(self):
-        display(self._visualization_widgets, self._cntrl)
+        display(self._visualization_widgets, self._cntrl, out)
