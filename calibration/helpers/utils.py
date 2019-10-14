@@ -1,8 +1,46 @@
 from itertools import chain
 
 
+def pulse_filter(pulse_ids, data_counts):
+
+    pulse_ids_intrain = parse_ids(pulse_ids)
+
+    if pulse_ids_intrain == [-1]:
+        pulse_ids_intrain = list(range(data_counts.iloc[0]))
+    indices = [list(map(lambda x: x + idx * n_pulse, pulse_ids_intrain))
+               for idx, n_pulse in enumerate(data_counts, start=0)]
+
+    return indices
+
+# list(chain(*indices))
+
+def parse_le(text):
+    if ":" not in text:
+        raise ValueError("Input is incomprehensible")
+    elif text == ":":
+        return [-1]
+    else:
+        indices = text.split(":")
+        if len(indices) < 0 or len(indices) > 2:
+            raise ValueError("Input is incomprehensible")
+
+        try:
+            start = int(indices[0].strip())
+            stop = int(indices[1].strip())
+        except Exception as ex:
+            raise ValueError("Cannot convert inputs to integers")
+
+        if start < 0 or stop < 0:
+            raise ValueError("Indices cannot be less than 0")
+
+        return start, stop
+
+
 def parse_ids(text):
-    """Parse a string into a list of integers.
+
+    """ Method to parse pulse ids in KaraboFAI.
+
+    Parse a string into a list of integers.
 
     :param str text: the input string.
 
@@ -62,37 +100,3 @@ def parse_ids(text):
 
     return sorted(ret)
 
-
-def pulse_filter(pulse_ids, data_counts):
-
-    pulse_ids_intrain = parse_ids(pulse_ids)
-
-    if pulse_ids_intrain == [-1]:
-        pulse_ids_intrain = list(range(data_counts.iloc[0]))
-    indices = [list(map(lambda x: x + idx * n_pulse, pulse_ids_intrain))
-               for idx, n_pulse in enumerate(data_counts, start=0)]
-
-    return indices
-
-# list(chain(*indices))
-
-def parse_le(text):
-    if ":" not in text:
-        raise ValueError("Input is incomprehensible")
-    elif text == ":":
-        return [-1]
-    else:
-        indices = text.split(":")
-        if len(indices) < 0 or len(indices) > 2:
-            raise ValueError("Input is incomprehensible")
-
-        try:
-            start = int(indices[0].strip())
-            stop = int(indices[1].strip())
-        except Exception as ex:
-            raise ValueError("Cannot convert inputs to integers")
-
-        if start < 0 or stop < 0:
-            raise ValueError("Indices cannot be less than 0")
-
-        return start, stop

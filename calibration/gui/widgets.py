@@ -1,4 +1,4 @@
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from functools import partial
 
 import ipywidgets as widgets
@@ -215,25 +215,28 @@ class Display:
     def onVisulizationParamChange(self, value):
         modno = self._module_dd.value
         if self._cntrl.selected_index == 1:
-            image = self.data_model[modno].dark_data.image
-            if image is None:
+            images = self.data_model[modno].dark_data.image
+            centers = self.data_model[modno].dark_data.st.bin_centers
+            counts = self.data_model[modno].dark_data.st.bin_counts
+            if not all([images is not None,
+                        centers is not None,
+                        counts is not None]):
                 return
+
             else:
                 pid = self._memory_sl.value
-                shape = image.shape
+                shape = images.shape
 
                 if pid > shape[0] - 1:
                     return
 
-                centers, counts = eval_statistics(image[pid, 0, ...], bins=100)
-
-                self._dark_image_widget.data[0].z = image[pid, 0, ...]
+                self._dark_image_widget.data[0].z = images[pid, 0, ...]
 
                 self._dark_image_widget.data[0].colorscale = \
                     self._cmaps_list.value
 
-                self._dark_hist_widget.data[0].x = centers
-                self._dark_hist_widget.data[0].y = counts
+                self._dark_hist_widget.data[0].x = centers[pid]
+                self._dark_hist_widget.data[0].y = counts[pid]
 
         elif self._cntrl.selected_index == 2:
             images = self.data_model[modno].proc_data.image
@@ -447,6 +450,8 @@ class Display:
             futures[mod_no].add_done_callback(self.onProcessDarkDone)
 
         self._process_dark.disabled=True
+        self._subtract_dark_cb.disabled = True
+        self._subtract_dark_cb.value = False
 
     @out.capture()
     def onProcessDarkDone(self, future):
@@ -462,12 +467,16 @@ class Display:
                 images = self.data_model[future.arg].dark_data.image
                 centers_pr=[]
                 counts_pr=[]
-                # TODO: Use ThreadPool
-                for pulse in range(images.shape[0]):
+
+                def _eval_stat(pulse):
                     centers, counts = eval_statistics(
                         images[pulse, 0, ...], bins=1000)
-                    centers_pr.append(centers)
-                    counts_pr.append(counts)
+                    return centers, counts
+
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    for ret in executor.map(_eval_stat, range(images.shape[0])):
+                        centers_pr.append(ret[0])
+                        counts_pr.append(ret[1])
 
                 self.data_model[future.arg].dark_data.st.bin_centers = np.stack(
                     centers_pr)
@@ -486,7 +495,6 @@ class Display:
                 self._subtract_dark_cb.disabled = False
 
         self._process_dark.disabled = False
-
 
     def _on_process_run(self, e=None):
         path = self._run_folder.value
@@ -594,12 +602,15 @@ class Display:
                 images = self.data_model[future.arg].proc_data.image
                 centers_pr = []
                 counts_pr = []
-                # TODO: Use ThreadPool
-                for pulse in range(images.shape[0]):
+                def _eval_stat(pulse):
                     centers, counts = eval_statistics(
                         images[pulse, :, 0, ...], bins=1000)
-                    centers_pr.append(centers)
-                    counts_pr.append(counts)
+                    return centers, counts
+
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    for ret in executor.map(_eval_stat, range(images.shape[0])):
+                        centers_pr.append(ret[0])
+                        counts_pr.append(ret[1])
 
                 self.data_model[future.arg].proc_data.st.bin_centers = np.stack(
                     centers_pr)
@@ -618,6 +629,9 @@ class Display:
 
         self._process_run.disabled = False
         self._fitting_bt.disabled = False
+
+    def clearPlots(self):
+        pass
 
     def control_panel(self):
         display(self._visualization_widgets, self._cntrl, out)

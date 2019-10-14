@@ -74,6 +74,7 @@ def DataProcessing(module_number, path, *,
     # trains while performing dark average. For getting dark subtracted
     # train (one train or a range of trains) data, have to think about
     # better way. (`next(run.trains())`)
+    # Looping over trains for average does not improve speed.
 
     data = run.get_array(module[0], "image.data",
                          roi=rois).values[pulses, ...].astype(np.float32)
@@ -120,10 +121,10 @@ class DataModel:
 
 
 def eval_statistics(image, bins=None):
-    img = np.copy(image)
+    # img = np.copy(image) Unnecessary
 
     bins = 100 if bins is None else bins
-    counts, edges = np.histogram(img.ravel(), bins)
+    counts, edges = np.histogram(image.ravel(), bins)
     centers = (edges[1:] + edges[:-1]) / 2.0
     return centers, counts
 
