@@ -31,7 +31,7 @@ class Display:
         self.futures = {}
         self.data_model = {}
         self.filtered = None
-
+        out.clear_output()
         self._initUI()
 
     def _initUI(self):
@@ -213,7 +213,6 @@ class Display:
                 justify_content='space-between'))
 
     def onVisulizationParamChange(self, value):
-        logger.error("Starting program")
         modno = self._module_dd.value
         if self._cntrl.selected_index == 1:
             image = self.data_model[modno].dark_data.image
@@ -378,7 +377,7 @@ class Display:
         self._proc_fit_params_widget.layout.update(
             margin=dict(l=0, b=0, t=50),
             width=900,
-            height=400,
+            height=300,
             title="Peaks Info.",
             )
         self._proc_plot_widgets = widgets.VBox(
@@ -449,6 +448,7 @@ class Display:
 
         self._process_dark.disabled=True
 
+    @out.capture()
     def onProcessDarkDone(self, future):
         if future.cancelled():
             print('{}: canceled'.format(future.arg))
@@ -483,8 +483,10 @@ class Display:
                     self._dark_hist_widget.data[0].y = \
                         self.data_model[future.arg].dark_data.st.bin_counts[pid]
 
+                self._subtract_dark_cb.disabled = False
+
         self._process_dark.disabled = False
-        self._subtract_dark_cb.disabled = False
+
 
     def _on_process_run(self, e=None):
         path = self._run_folder.value
@@ -541,6 +543,7 @@ class Display:
 
         self._process_run.disabled=True
 
+    @out.capture()
     def _on_fitting(self, e=None):
 
         if self.filtered is None:
@@ -559,20 +562,24 @@ class Display:
         params.extend(sigma)
         params.extend(bin_centers[pid][self.peaks])
 
-        fit_data, popt, perr = gauss_fit(
-            bin_centers[pid], self.filtered, params)
+        try:
+            fit_data, popt, perr = gauss_fit(
+                bin_centers[pid], self.filtered, params)
+        except Exception as ex:
+            print(ex)
+            return
 
-        if fit_data is not None:
-            self._proc_hist_widget.data[1].x = bin_centers[pid]
-            self._proc_hist_widget.data[1].y = fit_data
+        self._proc_hist_widget.data[1].x = bin_centers[pid]
+        self._proc_hist_widget.data[1].y = fit_data
 
-            table_elements = [
-                f"{i:.2f}" + " +/- " + f"{j:.2f}" for i, j in zip(popt, perr)]
-            table_elements = np.split(np.array(table_elements), 3)
+        table_elements = [
+            f"{i:.2f}" + " +/- " + f"{j:.2f}" for i, j in zip(popt, perr)]
+        table_elements = np.split(np.array(table_elements), 3)
 
-            self._proc_fit_params_widget.data[0].cells.values = \
-                [table_elements[2], table_elements[0], table_elements[1]]
+        self._proc_fit_params_widget.data[0].cells.values = \
+            [table_elements[2], table_elements[0], table_elements[1]]
 
+    @out.capture()
     def onProcessingDone(self, future):
         if future.cancelled():
             print('{}: cancelled'.format(future.arg))

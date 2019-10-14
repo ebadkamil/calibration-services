@@ -1,5 +1,6 @@
 import logging
 import ipywidgets as widgets
+import sys
 
 
 out = widgets.Output(
@@ -24,8 +25,10 @@ class LoggerWidget(logging.Handler):
         out.outputs = (new_output, ) + out.outputs
 
 logger = logging.getLogger(__name__)
+
 handler = LoggerWidget()
 handler.setFormatter(
     logging.Formatter('%(asctime)s  - [%(levelname)s] %(message)s'))
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
+

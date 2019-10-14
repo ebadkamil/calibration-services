@@ -87,8 +87,9 @@ def DataProcessing(module_number, path, *,
         if dark_module.shape == data.shape[1:]:
             data -= dark_module
         else:
-            print(f"Different data shapes, dark_data: {dark_module.shape}"
-                  f" Run data: {data.shape[1:]}")
+            raise ValueError(
+                f"Different data shapes, dark_data: {dark_module.shape}"
+                f" Run data: {data.shape[1:]}")
 
     return operation(data)
 
@@ -137,11 +138,8 @@ def gaussian(x, *params):
 
 
 def gauss_fit(xdata, ydata, params):
-    try:
-        popt, pcov = curve_fit(gaussian, xdata, ydata, p0=params)
-        return (np.array([gaussian(x, *popt) for x in xdata]), popt,
-                np.sqrt(np.diag(pcov)))
 
-    except Exception as ex:
-        print(ex)
-        return None, None, None
+    popt, pcov = curve_fit(gaussian, xdata, ydata, p0=params)
+    return (np.array([gaussian(x, *popt) for x in xdata]), popt,
+            np.sqrt(np.diag(pcov)))
+
