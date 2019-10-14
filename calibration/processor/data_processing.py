@@ -17,7 +17,7 @@ def DataProcessing(module_number, path, *,
     Parameters
     ----------
     module_number: int
-        Channel number between 0, 16
+        Channel number between 0, 15
     path: str
         Path to Run folder
     train_index: karabo_data (by_index)
@@ -43,7 +43,7 @@ def DataProcessing(module_number, path, *,
         Shape:  operation -> (n_trains, n_pulses, ..., slow_scan, fast_scan)
     """
 
-    if operation is None or not path or module_number not in range(16):
+    if not path or module_number not in range(16):
         return
 
     pattern = f"(.+)AGIPD{module_number:02d}(.+)"
@@ -92,7 +92,10 @@ def DataProcessing(module_number, path, *,
                 f"Different data shapes, dark_data: {dark_module.shape}"
                 f" Run data: {data.shape[1:]}")
 
-    return operation(data)
+    if operation is not None:
+        return operation(data)
+    else:
+        return data
 
 
 class Statistics:

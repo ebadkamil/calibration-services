@@ -17,9 +17,6 @@ from .logger import out, logger
 from ..helpers import parse_le, parse_ids, pulse_filter
 from ..processor import DataProcessing, DataModel, eval_statistics, gauss_fit
 
-def f(x):
-    return x
-
 
 class Display:
     '''Control panel'''
@@ -537,7 +534,6 @@ class Display:
             pulse_ids=pulse_ids,
             train_index=train_index,
             rois=rois,
-            operation=f,
             dark_run=dark_run)
 
         module_numbers = parse_ids(self._module_numbers.value)
