@@ -83,10 +83,10 @@ def DataProcessing(module_number, path, *,
         raise ValueError(f"Empty data array for train_index {train_index}")
 
     if dark_run is not None:
-        dark_module = dark_run[module_number]
+        # dark_module = dark_run[module_number]
 
-        if dark_module.shape == data.shape[1:]:
-            data -= dark_module
+        if dark_run.shape == data.shape[1:]:
+            data -= dark_run
         else:
             raise ValueError(
                 f"Different data shapes, dark_data: {dark_module.shape}"

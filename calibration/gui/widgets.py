@@ -534,15 +534,16 @@ class Display:
             pulse_ids=pulse_ids,
             train_index=train_index,
             rois=rois,
-            dark_run=dark_run)
+            )
 
         module_numbers = parse_ids(self._module_numbers.value)
         executor = ProcessPoolExecutor(max_workers=len(module_numbers))
 
         futures = {}
         for mod_no in module_numbers:
-            futures[mod_no] = executor.submit(eval_, mod_no)
-            futures[mod_no].arg=mod_no
+            futures[mod_no] = executor.submit(
+                eval_, mod_no, dark_run=dark_run[mod_no])
+            futures[mod_no].arg = mod_no
             futures[mod_no].add_done_callback(self.onProcessingDone)
 
         self._process_run.disabled=True
