@@ -522,7 +522,8 @@ class Display:
             start_y, stop_y = roi_y
             rois = by_index[..., start_x:stop_x, start_y:stop_y]
 
-        dark_run = None
+        dark_run = dict.fromkeys(self.data_model.keys())
+
         if self._subtract_dark_cb.value:
             dark_run = {
                 key: value.dark_data.image

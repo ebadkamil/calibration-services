@@ -34,7 +34,7 @@ def DataProcessing(module_number, path, *,
 
     operation: function
         For eg. functools.partial(np.mean, axis=0) to take mean over trains
-    dark_run: nd.array
+    dark_run: ndarray
         dark_data to subtract
 
     Return
@@ -83,7 +83,6 @@ def DataProcessing(module_number, path, *,
         raise ValueError(f"Empty data array for train_index {train_index}")
 
     if dark_run is not None:
-        # dark_module = dark_run[module_number]
 
         if dark_run.shape == data.shape[1:]:
             data -= dark_run
@@ -142,8 +141,25 @@ def gaussian(x, *params):
 
 
 def gauss_fit(xdata, ydata, params):
+    """
+    Parameters:
+    ----------
+    xdata: 1d array
+    ydata: 1d array
+    params: list
+        [A1, A2, A3, ..., S1, S2, S3, ..., P1, P2, P3...]
+        A: Amplitude of Gaussian
+        S: Width of Gaussian
+        P: Centre of Gaussian
+
+    Return
+    ------
+    fit_data: 1d array
+    popt: fit params
+    perr: np.sqrt(np.diag(pcov))
+        standard error in fit params
+    """
 
     popt, pcov = curve_fit(gaussian, xdata, ydata, p0=params)
-    return (np.array([gaussian(x, *popt) for x in xdata]), popt,
-            np.sqrt(np.diag(pcov)))
+    return (gaussian(xdata, *popt), popt, np.sqrt(np.diag(pcov)))
 
