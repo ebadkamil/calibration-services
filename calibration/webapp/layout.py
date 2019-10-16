@@ -5,26 +5,48 @@ import dash_daq as daq
 UPDATE_INT = 1.0
 
 def get_dark_tab():
-    return html.Div(
-        className='control-tab',
-        children=[
-            html.Br(), html.Div([
-                html.Div([
-                    html.Label("Run Folder"),
-                    dcc.Input(
-                        id='run-folder',
-                        placeholder="Enter dark run directory",
-                        type='text',
-                        value=""),
+    div = html.Div(
+            className='control-tab',
+            children=[
+                html.Br(), html.Div([
+                    html.Div([
+                        html.Label("Dark Run Folder"),
+                        dcc.Input(
+                            id='dark-run-folder',
+                            placeholder="Enter dark run directory",
+                            type='text',
+                            value=""),
 
-                    html.Hr(),
-                    daq.BooleanSwitch(
-                        id='load',
-                        on=False),
-                        ],
-                        className="pretty_container one-third column"),
-                    html.Div(id="load-info",
-                             className="two-thirds column")], className="row")])
+                        html.Hr(),
+                        daq.BooleanSwitch(
+                            id='load-dark',
+                            on=False),
+                            ],
+                            className="pretty_container four columns"),
+
+                        html.Div([
+                            html.Label("Train IDs:", className="leftbox"),
+                            dcc.Input(
+                                id='train-id-dark',
+                                type='text',
+                                value=":",
+                                className="rightbox"),
+                            ],
+                            className="pretty_container three columns")], className="row"),
+                html.Br(),
+
+                html.Div([
+                    html.Div(
+                        [dcc.Graph(
+                            id='mean-dark-image')],
+                        className="pretty_container six columns"),
+                    html.Div(
+                        [dcc.Graph(
+                            id='dark-image-histogram')],
+                        className="pretty_container six columns")], className="row"),
+                ])
+
+    return div
 
 
 def get_general_setup_tab():
@@ -70,7 +92,74 @@ def get_general_setup_tab():
 
 
 def get_plot_tab():
-    return html.Div(id="visualization")
+    div = html.Div(
+            className='control-tab',
+            children=[
+                html.Br(), html.Div([
+                    html.Div([
+                        html.Label("Run Folder"),
+                        dcc.Input(
+                            id='run-folder',
+                            placeholder="Enter dark run directory",
+                            type='text',
+                            value=""),
+
+                        html.Hr(),
+                        html.Button(
+                            'Load Run',
+                            id='load-run',
+                            className="leftbox"),
+                        html.Button(
+                            'Fit Histogram',
+                            id='fit-histogram',
+                            className="rightbox"),
+                            ],
+                            className="pretty_container five columns"),
+
+                        html.Div([
+                            html.Label("Train IDs:", className="leftbox"),
+                            dcc.Input(
+                                id='train-id-run',
+                                type='text',
+                                value=":",
+                                className="rightbox"),
+                            html.Label("Subtract Dark:", className="leftbox"),
+                            dcc.Input(
+                                id='subtract-dark',
+                                type='text',
+                                value=":",
+                                className="rightbox"),
+                            html.Label("Peak Threshold:", className="leftbox"),
+                            dcc.Slider(
+                                id='peak-threshold',
+                                min=0,
+                                max=50000.0,
+                                step=1.0,
+                                value=0.,
+                                className="rightbox"),
+                            html.Label("Peak Distance:", className="leftbox"),
+                            dcc.Slider(
+                                id='peak-distance',
+                                min=0,
+                                max=1000.0,
+                                step=1.0,
+                                value=0.,
+                                className="rightbox"),
+                            ],
+                            className="pretty_container five columns")], className="row"),
+                html.Br(),
+
+                html.Div([
+                    html.Div(
+                        [dcc.Graph(
+                            id='mean-run-image')],
+                        className="pretty_container six columns"),
+                    html.Div(
+                        [dcc.Graph(
+                            id='run-image-histogram')],
+                        className="pretty_container six columns")], className="row"),
+                ])
+    return div
 
 
 def get_layout():
