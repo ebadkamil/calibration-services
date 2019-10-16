@@ -7,6 +7,7 @@ All rights reserved.
 """
 
 from itertools import chain
+import psutil as ps
 
 
 def pulse_filter(pulse_ids, data_counts):
@@ -108,3 +109,7 @@ def parse_ids(text):
 
     return sorted(ret)
 
+
+def get_virtual_memory():
+    virtual_memory, swap_memory = ps.virtual_memory(), ps.swap_memory()
+    return virtual_memory, swap_memory
