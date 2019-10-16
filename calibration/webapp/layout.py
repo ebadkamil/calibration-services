@@ -3,6 +3,8 @@ import dash_core_components as dcc
 import dash_daq as daq
 
 UPDATE_INT = 1.0
+colors_map = ['Blackbody', 'Reds', 'Viridis']
+
 
 def get_dark_tab():
     div = html.Div(
@@ -191,6 +193,31 @@ def get_layout():
         ]),
 
         html.Br(),
+
+        html.Div(
+            [html.Div(
+                [dcc.Dropdown(
+                    id='color-scale',
+                    options=[{'label': i, 'value': i}
+                             for i in colors_map],
+                    value=colors_map[0])],
+                className="pretty_container four columns"),
+             html.Div(
+                [dcc.Dropdown(
+                    id='modules',
+                    )],
+                className="pretty_container four columns"),
+             html.Div(
+                [html.Label("Pulses: ", className="leftbox"),
+                 dcc.Slider(
+                    id='n-pulses',
+                    min=0,
+                    max=249,
+                    value=0,
+                    step=1,
+                    className="rightbox")],
+                className="pretty_container four columns"),],
+            className="row"),
 
         html.Div(children=[
             dcc.Tabs(
