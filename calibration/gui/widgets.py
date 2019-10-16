@@ -30,7 +30,6 @@ class Display:
     '''Control panel'''
 
     def __init__(self, config=None):
-        self._output = widgets.Output()
         self._cntrl = widgets.Tab()
         self.config = config
         self.futures = {}
@@ -561,6 +560,8 @@ class Display:
     def _on_fitting(self, e=None):
 
         if self.filtered is None:
+            print("No initial guess for peaks available.\n"
+                  "Use threshold and distance filter to get initial peaks")
             return
 
         params = []
