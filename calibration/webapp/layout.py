@@ -28,7 +28,45 @@ def get_dark_tab():
 
 
 def get_general_setup_tab():
-    return html.Div(id="general-params")
+    div = html.Div(
+        className='control-tab',
+        children=[
+        html.Br(),
+        html.Div([
+            html.Div([
+                html.Label("Module Numbers", className="leftbox"),
+                dcc.Input(
+                    id='mod-no',
+                    type='text',
+                    value="14, 15",
+                    className="rightbox"),
+
+                html.Label("Pulse index", className="leftbox"),
+                dcc.Input(
+                    id='pulse-index',
+                    type='text',
+                    value="1:250:2",
+                    className="rightbox"),
+
+                html.Label("Roi X:", className="leftbox"),
+                dcc.Input(
+                    id='roi-x',
+                    type='text',
+                    value=":",
+                    className="rightbox"),
+                html.Label("Roi Y:", className="leftbox"),
+                dcc.Input(
+                    id='roi-y',
+                    type='text',
+                    value=":",
+                    className="rightbox"),
+
+                ],
+                className="pretty_container one-third column"),
+            html.Div(id="general-info",
+                className="two-thirds column")], className="row")])
+
+    return div
 
 
 def get_plot_tab():

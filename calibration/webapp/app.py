@@ -13,7 +13,7 @@ from ..helpers import get_virtual_memory
 class DashApp:
 
     def __init__(self):
-        app = dash.Dash("Calibration Analysis")
+        app = dash.Dash(__name__)
         app.config['suppress_callback_exceptions'] = True
 
         self._app = app
@@ -42,6 +42,5 @@ class DashApp:
 
 
 def run_app():
-
     app = DashApp()
     app._app.run_server(debug=False)
