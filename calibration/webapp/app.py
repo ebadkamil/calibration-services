@@ -1,4 +1,11 @@
-import argparse
+"""
+Calibration analysis and visualization for AGIPD Detector
+
+Author: Ebad Kamil <ebad.kamil@xfel.eu>
+Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
+All rights reserved.
+"""
+
 from math import ceil
 
 import dash

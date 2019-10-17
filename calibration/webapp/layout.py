@@ -1,3 +1,11 @@
+"""
+Calibration analysis and visualization for AGIPD Detector
+
+Author: Ebad Kamil <ebad.kamil@xfel.eu>
+Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
+All rights reserved.
+"""
+
 import dash_html_components as html
 import dash_core_components as dcc
 import dash_daq as daq
