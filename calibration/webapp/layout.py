@@ -9,6 +9,7 @@ All rights reserved.
 import dash_html_components as html
 import dash_core_components as dcc
 import dash_daq as daq
+import dash_table as dt
 
 UPDATE_INT = 1.0
 colors_map = ['Blackbody', 'Reds', 'Viridis']
@@ -168,6 +169,27 @@ def get_plot_tab():
                         [dcc.Graph(
                             id='run-image-histogram')],
                         className="pretty_container six columns")], className="row"),
+
+                html.Div(
+                    children=[
+                    dt.DataTable(
+                            id='analysis_type_table',
+                            columns=[{'name': 'Positions', 'id': 'positions'},
+                                     {'name': 'Width', 'id': 'width'},
+                                     {'name': 'Amplitude', 'id': 'amplitude'}],
+                            style_header={
+                                'color':'#17252A',
+                                'text-align': 'center',
+                            },
+                            style_cell={
+                                'fontWeight': 'bold',
+                                'fontSize': '18px',
+                                'text-align': 'left',
+                            },
+                        ),
+
+                    ]
+                    ),
                 ])
     return div
 
