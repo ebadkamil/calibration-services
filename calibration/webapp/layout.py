@@ -170,26 +170,27 @@ def get_plot_tab():
                             id='run-image-histogram')],
                         className="pretty_container six columns")], className="row"),
 
+                html.Br(),
+                html.Div([
                 html.Div(
                     children=[
                     dt.DataTable(
-                            id='analysis_type_table',
+                            id='fitting-params',
                             columns=[{'name': 'Positions', 'id': 'positions'},
                                      {'name': 'Width', 'id': 'width'},
                                      {'name': 'Amplitude', 'id': 'amplitude'}],
                             style_header={
-                                'color':'#17252A',
+                                'backgroundColor':'#AFEEEE',
                                 'text-align': 'center',
                             },
                             style_cell={
-                                'fontWeight': 'bold',
-                                'fontSize': '18px',
                                 'text-align': 'left',
+                                'backgroundColor':'#967bb6',
                             },
                         ),
 
-                    ]
-                    ),
+                    ],
+                    className="pretty_container twelve columns"),], className="row")
                 ])
     return div
 
