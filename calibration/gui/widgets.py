@@ -617,6 +617,9 @@ class Display:
         self._proc_fit_params_widget.data[0].cells.values = \
             [table_elements[2], table_elements[0], table_elements[1]]
 
+        self._proc_fit_residuals_widget.data[0].y = \
+            self.filtered - fit_data
+
     @out.capture()
     def onProcessingDone(self, future):
         if future.cancelled():
