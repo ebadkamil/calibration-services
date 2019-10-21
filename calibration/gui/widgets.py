@@ -280,6 +280,9 @@ class Display:
 
                 self._proc_fit_params_widget.data[0].cells.values = \
                     [centers[pid][self.peaks], self.filtered[self.peaks], []]
+
+                self._proc_hist_box_widget.data[0].y = \
+                    images[pid, :, 0, ...].ravel()
         else:
             pass
 
@@ -381,17 +384,37 @@ class Display:
                 align='left'))]
 
         self._proc_fit_params_widget = go.FigureWidget(data=trace)
+        self._proc_fit_residuals_widget = go.FigureWidget(
+            data=go.Box(boxmean='sd', name='Scipy Res.', boxpoints=False))
+
+        self._proc_hist_box_widget = go.FigureWidget(
+            data=go.Box(boxmean='sd', name='Histogram', boxpoints=False))
+
         self._proc_fit_params_widget.layout.update(
             margin=dict(l=0, b=0, t=50),
             width=900,
             height=300,
             title="Peaks Info.",
             )
+        self._proc_fit_residuals_widget.layout.update(
+            margin=dict(r=0, l=10, b=40, t=50),
+            width=450,
+            title="Residuals",
+            )
+        self._proc_hist_box_widget.layout.update(
+            margin=dict(l=0, b=40, t=50),
+            width=450,
+            title="Histogram Info.",
+            )
+
         self._proc_plot_widgets = widgets.VBox(
             [widgets.HBox(
                 [self._proc_image_widget,
                  self._proc_hist_widget]),
-            self._proc_fit_params_widget
+            widgets.HBox(
+                [self._proc_hist_box_widget,
+                 self._proc_fit_residuals_widget]),
+            self._proc_fit_params_widget,
             ])
 
         self._proc_ctrl_widget = widgets.HBox(
@@ -633,6 +656,8 @@ class Display:
                         self.data_model[future.arg].proc_data.st.bin_centers[pid]
                     self._proc_hist_widget.data[0].y = \
                         self.data_model[future.arg].proc_data.st.bin_counts[pid]
+                    self._proc_hist_box_widget.data[0].y = \
+                        self.data_model[future.arg].proc_data.image[pid, :, 0, ...].ravel()
 
         self._process_run.disabled = False
         self._fitting_bt.disabled = False
