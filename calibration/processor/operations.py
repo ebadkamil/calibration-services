@@ -52,7 +52,6 @@ def _eval(i, bin_edges, path, module_number):
 
         total += np.stack(counts_pr)
 
-    print(total.shape)
     return total
 
 
@@ -75,11 +74,13 @@ def eval_histogram(path, module_number, bin_edges, *,
         path=path,
         module_number=module_number)
 
-    with ProcessPoolExecutor(max_workers=2) as executor:
-        ret = executor.map(_eval_i, sequences[4:8])
+    histograms = []
+    with ProcessPoolExecutor(max_workers=len(sequences)) as executor:
+        for ret in executor.map(_eval_i, sequences):
+            histograms.append(ret)
 
-    for r in ret:
-        print(r.shape)
+    return sum(histograms)
+
 
 if __name__ == "__main__":
     path = "/gpfs/exfel/exp/MID/201931/p900091/raw/r0491"
@@ -92,4 +93,4 @@ if __name__ == "__main__":
     sequences = [re.match(pattern, f).group(2) for f in os.listdir(path)
                  if f.endswith('.h5') and re.match(pattern, f)]
 
-    eval_histogram(path, module_number, sequences[0])
+    counts = eval_histogram(path, module_number, bin_edges)
