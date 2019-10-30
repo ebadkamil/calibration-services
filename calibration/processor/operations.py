@@ -27,7 +27,7 @@ def _eval_all(i, bin_edges, path, module_number, pulses, *, dark_run=None):
 
     if not files:
         return
-
+    # Use H5File instead. Will be just one file
     run = DataCollection.from_paths(files)
 
     module = [key for key in run.instrument_sources
@@ -79,9 +79,8 @@ def vectorize_para_imp(data, bin_edges, chunk):
         counts, _ = np.histogram(x, bins=bin_edges)
         return counts
     hist_vectorize = np.vectorize(pixel_histogram, otypes=[np.ndarray])
-    hist = hist_vectorize(data[:, start:end, :])
-    return hist
-    # ret[:, start:end, :] = hist
+    hist = hist_vectorize(data[:, start:end, :]).tolist()
+    return np.array(hist)
 
 
 def _eval_pixel(i, bin_edges, path, module_number, pulses, *, dark_run=None):
@@ -94,7 +93,7 @@ def _eval_pixel(i, bin_edges, path, module_number, pulses, *, dark_run=None):
 
     if not files:
         return
-
+    # Use H5File instead. Will be just one file
     run = DataCollection.from_paths(files)
 
     module = [key for key in run.instrument_sources
@@ -123,10 +122,9 @@ def _eval_pixel(i, bin_edges, path, module_number, pulses, *, dark_run=None):
                 f"Different data shapes, dark_data: {dark_data.shape}"
                 f" Run data: {image.shape}")
 
-        counts = np.zeros((len(pulses), 512, 128), dtype=np.ndarray)
+        counts = np.zeros((len(pulses), 512, 128, len(bin_edges)-1), dtype=np.uint32)
 
-        # t0 = time.perf_counter()
-        futures = {}
+        t0 = time.perf_counter()
         start = 0
         chunk_size = 32
         chunks = []
@@ -134,17 +132,19 @@ def _eval_pixel(i, bin_edges, path, module_number, pulses, *, dark_run=None):
             chunks.append((start, min(start + chunk_size, counts.shape[1])))
             start += chunk_size
 
-        _vectorize_para_imp = partial(vectorize_para_imp, image, bin_edges
-            )
+        _vectorize_para_imp = partial(vectorize_para_imp, image, bin_edges)
+
         with ProcessPoolExecutor(max_workers=16) as executor:
 
-            for chunk, ret in zip(chunks, executor.map(_vectorize_para_imp, chunks)):
+            for chunk, ret in zip(chunks, executor.map(
+                _vectorize_para_imp, chunks)):
                 start, end = chunk
-                counts[:, start:end, :] = ret
+                counts[:, start:end, :, :] = ret
+
         # print(f"Time taken {time.perf_counter()-t0}")
         total += counts
 
-    print("Total ", total[0][0][0].shape)
+    print("Total ", total.shape)
     return total
 
 
@@ -203,14 +203,15 @@ if __name__ == "__main__":
     counts = eval_histogram(path, module, bin_edges,
                             pulse_ids=pulse_ids,
                             dark_run=dark_data[0:10, ...])
+
+    print(f"Counts shape {counts.shape}")
     print(f"Time taken for histogram Eval.: {time.perf_counter()-t0}")
-
-    counts_file = "/gpfs/exfel/data/scratch/kamile/calibration_analysis/pixel_counts.h5"
-
-    # with h5py.File(counts_file, "w") as f:
-    #     g = f.create_group(f"entry_1/instrument/module_{module}")
-    #     g.create_dataset('counts', data=counts)
-    #     g.create_dataset('bins', data=bin_centers)
 
     plt.plot(bin_centers, counts[0][64][64])
     plt.show()
+    counts_file = "/gpfs/exfel/data/scratch/kamile/calibration_analysis/pixel_counts.h5"
+
+    with h5py.File(counts_file, "w") as f:
+        g = f.create_group(f"entry_1/instrument/module_{module}")
+        g.create_dataset('counts', data=counts)
+        g.create_dataset('bins', data=bin_centers)
