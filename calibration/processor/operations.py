@@ -119,10 +119,11 @@ def _eval_pixel(i, bin_edges, path, module_number, pulses, *, dark_run=None):
                 image -= dark_data
             else:
                 raise ValueError(
-                f"Different data shapes, dark_data: {dark_data.shape}"
-                f" Run data: {image.shape}")
+                    f"Different data shapes, dark_data: {dark_data.shape}"
+                    f" Run data: {image.shape}")
 
-        counts = np.zeros((len(pulses), 512, 128, len(bin_edges)-1), dtype=np.uint32)
+        counts = np.zeros(
+            (len(pulses), 512, 128, len(bin_edges)-1), dtype=np.uint32)
 
         t0 = time.perf_counter()
         start = 0
@@ -207,11 +208,12 @@ if __name__ == "__main__":
     print(f"Counts shape {counts.shape}")
     print(f"Time taken for histogram Eval.: {time.perf_counter()-t0}")
 
-    plt.plot(bin_centers, counts[0][64][64])
-    plt.show()
     counts_file = "/gpfs/exfel/data/scratch/kamile/calibration_analysis/pixel_counts.h5"
 
     with h5py.File(counts_file, "w") as f:
         g = f.create_group(f"entry_1/instrument/module_{module}")
         g.create_dataset('counts', data=counts)
         g.create_dataset('bins', data=bin_centers)
+
+    plt.plot(bin_centers, counts[0][64][64])
+    plt.show()
