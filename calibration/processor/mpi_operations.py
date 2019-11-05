@@ -95,7 +95,6 @@ if __name__ == "__main__":
     if rank == 0:
         pulse_ids = "1:20:2"
         bin_edges = np.linspace(-200, 400, 601, dtype=np.float32)
-        bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2.0
         bin_edges_shape = bin_edges.shape
 
         pulses = parse_ids(pulse_ids)
@@ -154,6 +153,7 @@ if __name__ == "__main__":
 
     if rank == 0:
         result = {}
+        bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2.0
         for mod in module_channels:
             result[mod] = 0
 
@@ -161,7 +161,7 @@ if __name__ == "__main__":
         for source in range(1, size):
             mod = comm.recv(source=source)
             histogram = np.empty(
-                (len(pulses),) + bin_edges_shape, dtype=np.int64)
+                (len(pulses),) + bin_centers.shape, dtype=np.int64)
             comm.Recv(histogram, source=source)
             result[mod] += histogram
 
@@ -169,7 +169,8 @@ if __name__ == "__main__":
         with h5py.File(file, "w") as f:
             for modno, data in result.items():
                 g = f.create_group(f"entry_1/instrument/module_{modno}")
-                g.create_dataset('data', data=result[modno])
+                g.create_dataset('counts', data=result[modno])
+                g.create_dataset('bins', data=bin_centers)
 
     else:
         comm.send(modno, dest=0)
