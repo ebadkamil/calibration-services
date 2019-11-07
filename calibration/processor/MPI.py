@@ -31,6 +31,7 @@ def distribute(path, comm=comm):
 
     index = None
     module_sequences = None
+    channels = None
     if comm.rank == 0:
         pattern = f"(.+)AGIPD(.+)-S(.+).h5"
         try:
@@ -57,6 +58,7 @@ def distribute(path, comm=comm):
     index = comm.bcast(index, root=0)
     # index is the number of processes available for each module
     module_sequences = comm.bcast(module_sequences, root=0)
+    channels = comm.bcast(channels, root=0)
 
     local_modno = comm.rank // index
     temp = comm.rank % index
@@ -69,11 +71,10 @@ def distribute(path, comm=comm):
 
     local_sequences = module_sequences[local_modno][start:stop]
 
-    return local_sequences
+    return channels, local_sequences
 
 
 if __name__ == "__main__":
-
     path = "/gpfs/exfel/exp/MID/201901/p002542/raw/r0349"
-    module_sequences = distribute(path)
+    channels, module_sequences = distribute(path)
     print("Module ", module_sequences)
