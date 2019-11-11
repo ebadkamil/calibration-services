@@ -28,7 +28,9 @@ comm = MPI.COMM_WORLD
 
 
 def eval_histogram(path, bin_edges, pulses, sequences, *, dark_run=None):
-    total = np.zeros((len(pulses),  bin_edges.shape[0] - 1), dtype=np.int64)
+
+    histogram = np.zeros(
+        (len(pulses),  bin_edges.shape[0] - 1), dtype=np.int64)
 
     if not sequences:
         return None, total
@@ -43,6 +45,7 @@ def eval_histogram(path, bin_edges, pulses, sequences, *, dark_run=None):
     if len(module) != 1:
         raise ValueError("More than one module found")
 
+    num_trains = 0
     for tid, data in run.trains(devices=[(module[0], "image.data")],
                                 require_all=True):
 
@@ -72,9 +75,9 @@ def eval_histogram(path, bin_edges, pulses, sequences, *, dark_run=None):
             for ret in executor.map(_eval_stat, range(image.shape[0])):
                 counts_pr.append(ret)
 
-        total += np.stack(counts_pr)
+        histogram += np.stack(counts_pr)
 
-    return modno[0], total
+    return modno[0], histogram
 
 
 if __name__ == "__main__":
