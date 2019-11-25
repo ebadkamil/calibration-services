@@ -127,10 +127,10 @@ class EvalHistogram:
 
             mean_image += image
             train_counts += 1
-            counts_pr = []
 
             if not self.pixel_hist:
                 """Evaluate histogram over entire module"""
+                counts_pr = []
                 def _eval_stat(pulse):
                     counts, _ = np.histogram(
                         image[pulse, ...].ravel(), bins=self.bin_edges)
