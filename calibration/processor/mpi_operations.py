@@ -33,7 +33,7 @@ def eval_histogram(path, bin_edges, pulses, sequences, *, dark_run=None):
         (len(pulses),  bin_edges.shape[0] - 1), dtype=np.int64)
 
     if not sequences:
-        return None, total
+        return None, histogram
 
     modno, files = zip(*sequences)
 
@@ -50,6 +50,9 @@ def eval_histogram(path, bin_edges, pulses, sequences, *, dark_run=None):
                                 require_all=True):
 
         image = data[module[0]]["image.data"][:, 0, ...]
+        if image.shape[0] == 0:
+            continue
+
         if pulses != [-1]:
             image = image[pulses, ...].astype(np.float32)
         else:
