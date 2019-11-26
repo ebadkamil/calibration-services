@@ -5,7 +5,7 @@ Author: Ebad Kamil <ebad.kamil@xfel.eu>
 Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
 All rights reserved.
 """
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 import h5py
 import multiprocessing as mp
@@ -21,123 +21,171 @@ from karabo_data import DataCollection, by_index
 from mpi4py import MPI
 from itertools import groupby
 
-from .MPI import distribute
 from ..helpers import pulse_filter, parse_ids
+from .MPI import distribute
 
-comm = MPI.COMM_WORLD
 
+class MPIEvalHistogram:
 
-def eval_histogram(path, bin_edges, pulses, sequences, *, dark_run=None):
+    def __init__(self, path,
+                 pixel_hist=False, comm=MPI.COMM_WORLD, dark_run=None):
+        self.comm = comm
+        self.path = path
+        self.pixel_hist = pixel_hist
+        self.dark_run = dark_run
 
-    histogram = np.zeros(
-        (len(pulses),  bin_edges.shape[0] - 1), dtype=np.int64)
+    def process(self, bin_edges, pulse_ids=None, workers=None):
+        self.bin_edges = bin_edges
+        pulse_ids = ":" if pulse_ids is None else pulse_ids
+        self.pulses = parse_ids(pulse_ids)
 
-    if not sequences:
-        return None, histogram
+        self.channels, self.local_sequences = distribute(
+            self.path, comm=self.comm)
 
-    modno, files = zip(*sequences)
+        print(self.local_sequences)
 
-    run = DataCollection.from_paths(list(files))
+        self.modno, self.histogram = self.eval_histogram()
+        self.gather()
 
-    module = [key for key in run.instrument_sources
-              if re.match(r"(.+)/DET/(.+):(.+)", key)]
+    def gather(self):
 
-    if len(module) != 1:
-        raise ValueError("More than one module found")
+        if self.comm.rank == 0:
+            self.result = {mod: 0 for mod in self.channels}
+            self.bin_centers = (self.bin_edges[1:] + self.bin_edges[:-1]) / 2.0
 
-    num_trains = 0
-    for tid, data in run.trains(devices=[(module[0], "image.data")],
-                                require_all=True):
+            if self.modno is not None:
+                self.result[self.modno] += self.histogram
 
-        image = data[module[0]]["image.data"][:, 0, ...]
-        if image.shape[0] == 0:
-            continue
+            for source in range(1, self.comm.size):
+                mod = self.comm.recv(source=source)
+                if mod is not None:
+                    histogram = np.empty(
+                        (len(self.pulses),) + bin_centers.shape, dtype=np.int64)
+                    self.comm.Recv(histogram, source=source)
+                else:
+                    histogram = self.comm.recv(source=source)
 
-        if pulses != [-1]:
-            image = image[pulses, ...].astype(np.float32)
+                if mod is not None and histogram is not None:
+                    self.result[mod] += histogram
         else:
-            image = image.astype(np.float32)
-
-        if dark_run is not None:
-            dark_data = dark_run[:, 0, ...]
-            if image.shape == dark_data.shape:
-                image -= dark_data
+            self.comm.send(self.modno, dest=0)
+            if self.modno is not None:
+                self.comm.Send(self.histogram, dest=0)
             else:
-                raise ValueError(
-                    f"Different data shapes, dark_data: {dark_data.shape}"
-                    f" Run data: {image.shape}")
+                self.comm.send(self.histogram, dest=0)
 
-        counts_pr = []
+    def eval_histogram(self):
 
-        def _eval_stat(pulse):
-            counts, _ = np.histogram(
-                image[pulse, ...].ravel(), bins=bin_edges)
-            return counts
+        if not self.local_sequences:
+            return None, None
 
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            for ret in executor.map(_eval_stat, range(image.shape[0])):
-                counts_pr.append(ret)
+        modno, files = zip(*self.local_sequences)
 
-        histogram += np.stack(counts_pr)
+        run = DataCollection.from_paths(list(files))
 
-    return modno[0], histogram
+        module = [key for key in run.instrument_sources
+                  if re.match(r"(.+)/DET/(.+):(.+)", key)]
+
+        if len(module) != 1:
+            raise ValueError("More than one module found")
+
+        num_trains = 0
+        histogram = 0
+
+        for tid, data in run.trains(devices=[(module[0], "image.data")],
+                                    require_all=True):
+
+            image = data[module[0]]["image.data"][:, 0, ...]
+
+            if image.shape[0] == 0:
+                continue
+
+            if self.pulses != [-1]:
+                image = image[self.pulses, ...].astype(np.float32)
+            else:
+                image = image.astype(np.float32)
+
+            if self.dark_run is not None:
+                dark_data = self.dark_run[:, 0, ...]
+                if image.shape == dark_data.shape:
+                    image -= dark_data
+                else:
+                    raise ValueError(
+                        f"Different data shapes, dark_data: {dark_data.shape}"
+                        f" Run data: {image.shape}")
+
+            if not self.pixel_hist:
+                """Evaluate histogram over entire module"""
+                counts_pr = []
+                def _eval_stat(pulse):
+                    counts, _ = np.histogram(
+                        image[pulse, ...].ravel(), bins=self.bin_edges)
+                    return counts
+
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    for ret in executor.map(_eval_stat, range(image.shape[0])):
+                        counts_pr.append(ret)
+                histogram += np.stack(counts_pr)
+
+            else:
+                """Evaluate histogram over each pixel"""
+                def multihist(chunk, data, bin_edges, ret):
+                    start, end = chunk
+                    temp = data[:, start:end, :]
+                    bin_ix = np.searchsorted(bin_edges[1:], temp)
+
+                    X, Y, Z = temp.shape
+                    xgrid, ygrid, zgrid = np.meshgrid(
+                        np.arange(X),
+                        np.arange(Y),
+                        np.arange(Z),
+                        indexing='ij')
+
+                    counts = np.zeros((X, Y, Z, len(bin_edges)), dtype=np.uint32)
+
+                    np.add.at(counts, (xgrid, ygrid, zgrid, bin_ix), 1)
+                    ret[:, start:end, :, :] = counts[..., :-1]
+
+                counts = np.zeros(
+                    (len(self.pulses),
+                    512,
+                    128,
+                    len(self.bin_edges)-1),
+                    dtype=np.uint32)
+
+                start = 0
+                chunk_size = 32
+                chunks = []
+
+                while start < counts.shape[1]:
+                    chunks.append(
+                        (start, min(start + chunk_size, counts.shape[1])))
+                    start += chunk_size
+
+                with ThreadPoolExecutor(max_workers=16) as executor:
+                    for chunk in chunks:
+                        executor.submit(
+                            multihist, chunk, image, self.bin_edges, counts)
+
+                histogram += counts
+
+            num_trains += 1
+        if num_trains != 0:
+            return modno[0], histogram
+        else:
+            return None, None
+
+    def hist_to_file(self, path):
+        if path and self.comm.rank == 0:
+            with h5py.File(path, "w") as f:
+                for modno, data in self.result.items():
+                    g = f.create_group(f"entry_1/instrument/module_{modno}")
+                    g.create_dataset('counts', data=data)
+                    g.create_dataset('bins', data=self.bin_centers)
 
 
 if __name__ == "__main__":
-
-    # path = "/gpfs/exfel/exp/MID/201931/p900091/raw/r0491"
     path = "/gpfs/exfel/exp/MID/201901/p002542/raw/r0349"
-    dark_data_file = "/home/kamile/calibration_services/dark_run.h5"
-    pulse_ids = "1:20:2"
-    pulses = parse_ids(pulse_ids)
-
-    bin_edges = np.linspace(-200, 400, 601, dtype=np.float32)
-
-    channels, local_sequences = distribute(path)
-    print(local_sequences)
-
-    dark_data_shape = None
-
-    if comm.rank == 0:
-        with h5py.File(dark_data_file, "r") as f:
-            dark_data = f["entry_1/instrument/module_15/data"][:].astype(
-                np.float32)
-        dark_data_shape = dark_data.shape
-        print(f"Shape of dark_data {dark_data_shape}")
-
-    dark_data_shape = comm.bcast(dark_data_shape, root=0)
-
-    if comm.rank != 0:
-        dark_data = np.empty(dark_data_shape, dtype=np.float32)
-
-    comm.Bcast(dark_data, root=0)
-
-    modno, hist = eval_histogram(
-        path, bin_edges, pulses, local_sequences,
-        dark_run=dark_data[0:10, ...])
-
-    if comm.rank == 0:
-        result = {mod: 0 for mod in channels}
-        bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2.0
-
-        if modno is not None:
-            result[modno] += hist
-
-        for source in range(1, comm.size):
-            mod = comm.recv(source=source)
-            histogram = np.empty(
-                (len(pulses),) + bin_centers.shape, dtype=np.int64)
-            comm.Recv(histogram, source=source)
-            if mod is not None:
-                result[mod] += histogram
-
-        file = "/gpfs/exfel/data/scratch/kamile/calibration_analysis/all_counts.h5"
-        with h5py.File(file, "w") as f:
-            for modno, data in result.items():
-                g = f.create_group(f"entry_1/instrument/module_{modno}")
-                g.create_dataset('counts', data=result[modno])
-                g.create_dataset('bins', data=bin_centers)
-
-    else:
-        comm.send(modno, dest=0)
-        comm.Send(hist, dest=0)
+    e = MPIEvalHistogram(path)
+    bin_edges = np.linspace(0, 10000, 1001, dtype=np.float32)
+    e.process(bin_edges, pulse_ids='0:20:1')
