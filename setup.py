@@ -1,31 +1,25 @@
 import os.path as osp
 import re
 from setuptools import setup, find_packages
-import sys
 
 
-def get_script_path():
-    return osp.dirname(osp.realpath(sys.argv[0]))
-
-
-def read(*parts):
-    return open(osp.join(get_script_path(), *parts)).read()
-
-
-def find_version(*parts):
-    vers_file = read(*parts)
-    match = re.search(r'^__version__ = "(\d+\.\d+\.\d+)"', vers_file, re.M)
-    if match is not None:
-        return match.group(1)
-    raise RuntimeError("Unable to find version string.")
+def find_version():
+    with open(osp.join('calibration', '__init__.py'), 'r') as f:
+        match = re.search(r'^__version__ = "(\d+\.\d+\.\d+)"', f.read(), re.M)
+        if match is not None:
+            return match.group(1)
+        raise RuntimeError("Unable to find version string.")
 
 
 setup(name="calibration",
-      version=find_version("calibration", "__init__.py"),
+      version=find_version(),
       author="European XFEL GmbH",
       author_email="ebad.kamil@xfel.eu",
       maintainer="Ebad Kamil",
       packages=find_packages(),
+      package_data={
+        'calibration.geometries': ['*.h5']
+      },
       entry_points={
           "console_scripts": [
               "detector_characterize = calibration.application:detector_characterize",
