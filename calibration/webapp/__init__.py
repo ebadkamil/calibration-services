@@ -1,4 +1,4 @@
-from .app import run_app
+from .app import DashApp
 
 __all__ = [
-    "run_app"]
+    "DashApp"]

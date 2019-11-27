@@ -1,6 +1,8 @@
-from .utils import pulse_filter, parse_ids, parse_le, get_virtual_memory
+from .utils import (
+    pulse_filter, parse_ids, parse_le, get_virtual_memory, find_proposal)
 
 __all__ = [
     "pulse_filter",
     "parse_ids",
-    "parse_le"]
+    "parse_le",
+    "find_proposal"]
