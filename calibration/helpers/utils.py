@@ -157,4 +157,4 @@ def find_proposal(proposal, run, data='raw'):
     elif not run.startswith('r'):
         run = 'r' + run.rjust(4, '0')
 
-    return osp.join(prop_dir, run)
+    return osp.join(prop_dir, data, run)

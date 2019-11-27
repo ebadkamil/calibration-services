@@ -11,10 +11,13 @@ import multiprocessing as mp
 import os.path as osp
 import os
 import re
+import time
+
+import h5py
 import numpy as np
 
 from karabo_data import DataCollection, by_index, H5File
-from ..helpers import pulse_filter, parse_ids
+from ..helpers import pulse_filter, parse_ids, find_proposal
 
 
 class EvalHistogram:
@@ -72,7 +75,7 @@ class EvalHistogram:
 
         pattern = f"(.+){self.dettype}{self.modno:02d}-S(.+).h5"
 
-        sequences = [osp.join(path, f) for f in os.listdir(self.path)
+        sequences = [osp.join(self.path, f) for f in os.listdir(self.path)
                      if f.endswith('.h5') and re.match(pattern, f)]
 
         histograms = []
@@ -194,8 +197,6 @@ class EvalHistogram:
             self.mean_image is not None,
             path]):
 
-            import h5py
-
             bin_centers = (self.bin_edges[1:] + self.bin_edges[:-1]) / 2.0
             with h5py.File(path, "w") as f:
                 g = f.create_group(f"entry_1/instrument/module_{self.modno}")
@@ -205,9 +206,6 @@ class EvalHistogram:
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    import time
-    import h5py
 
     with h5py.File("/home/kamile/calibration_services/dark_run.h5", "r") as f:
         dark_data = f["entry_1/instrument/module_15/data"][:]
@@ -229,32 +227,3 @@ if __name__ == "__main__":
     print(f"Time taken for histogram Eval.: {time.perf_counter()-t0}")
 
     e.hist_to_file(counts_file)
-
-    # with h5py.File("/home/kamile/calibration_services/dark_run.h5", "r") as f:
-    #     dark_data = f["entry_1/instrument/module_15/data"][:]
-
-    # print(f"Shape of dark data: {dark_data.shape}")
-
-    # path = "/gpfs/exfel/exp/MID/201931/p900091/raw/r0491"
-    # module = 15
-    # pulse_ids = "1:20:2"
-    # bin_edges = np.linspace(-200, 400, 601)
-    # bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2.0
-
-    # t0 = time.perf_counter()
-    # counts = eval_histogram(path, module, bin_edges,
-    #                         pulse_ids=pulse_ids,
-    #                         dark_run=dark_data[0:10, ...])
-
-    # print(f"Counts shape {counts.shape}")
-    # print(f"Time taken for histogram Eval.: {time.perf_counter()-t0}")
-
-    # counts_file = "/gpfs/exfel/data/scratch/kamile/calibration_analysis/pixel_counts.h5"
-
-    # with h5py.File(counts_file, "w") as f:
-    #     g = f.create_group(f"entry_1/instrument/module_{module}")
-    #     g.create_dataset('counts', data=counts)
-    #     g.create_dataset('bins', data=bin_centers)
-
-    # plt.plot(bin_centers, counts[0][64][64])
-    # plt.show()
