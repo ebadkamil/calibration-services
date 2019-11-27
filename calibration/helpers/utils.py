@@ -5,8 +5,9 @@ Author: Ebad Kamil <ebad.kamil@xfel.eu>
 Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
 All rights reserved.
 """
-
+from glob import iglob
 from itertools import chain
+import os.path as osp
 import psutil as ps
 
 
@@ -113,3 +114,47 @@ def parse_ids(text):
 def get_virtual_memory():
     virtual_memory, swap_memory = ps.virtual_memory(), ps.swap_memory()
     return virtual_memory, swap_memory
+
+
+def find_proposal(proposal, run, data='raw'):
+    """Access EuXFEL data on the Maxwell cluster by proposal and run number.
+    Parameters
+    ----------
+    proposal: str, int
+        A proposal number, such as 2012, '2012', 'p002012', or a path such as
+        '/gpfs/exfel/exp/SPB/201701/p002012'.
+    run: str, int
+        A run number such as 243, '243' or 'r0243'.
+    data: str
+        'raw' or 'proc' (processed) to access data from one of those folders.
+        The default is 'raw'.
+
+    Return:
+    -------
+    proposal_path: str
+    """
+    DATA_ROOT_DIR = "/gpfs/exfel/exp"
+    def find_dir(propno):
+        """Find the proposal directory for a given proposal on Maxwell"""
+        if '/' in propno:
+            # Already passed a proposal directory
+            return propno
+
+        for d in iglob(osp.join(DATA_ROOT_DIR, '*/*/{}'.format(propno))):
+            return d
+
+        raise Exception("Couldn't find proposal dir for {!r}".format(propno))
+
+    if isinstance(proposal, int):
+        proposal = 'p{:06d}'.format(proposal)
+    elif ('/' not in proposal) and not proposal.startswith('p'):
+        proposal = 'p' + proposal.rjust(6, '0')
+
+    prop_dir = find_dir(proposal)
+
+    if isinstance(run, int):
+        run = 'r{:04d}'.format(run)
+    elif not run.startswith('r'):
+        run = 'r' + run.rjust(4, '0')
+
+    return osp.join(prop_dir, run)
