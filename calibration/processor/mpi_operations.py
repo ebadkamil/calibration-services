@@ -29,14 +29,13 @@ class MPIEvalHistogram:
 
     Attributes:
     -----------
-    path: (str) Path to Run folder
-    dettype: (str) AGIPD, LPD
-    pixel_hist: (bool) optional
-        Default: False. For pixel wise histogram set it to True
-    dark_run: (numpy.ndarray) optional
-        dark_dta shape (n_pulses, slow_scan, fast_scan)
-        Default: None,
-        If provided dark data will be subtracted from images"""
+        path: (str) Path to Run folder
+        pixel_hist: (bool) optional
+            Default: False. For pixel wise histogram set it to True
+        dark_run: (numpy.ndarray) optional
+            dark_dta shape (n_pulses, slow_scan, fast_scan)
+            Default: None,
+            If provided dark data will be subtracted from images"""
     _tag_mod = 111
     _tag_histogram_data = 1111
     _tag_histogram_shape = 1112
