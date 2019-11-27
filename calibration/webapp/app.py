@@ -46,8 +46,3 @@ class DashApp:
                 raise dash.exceptions.PreventUpdate
             return ((virtual.used/1024**3), ceil((virtual.total/1024**3)),
                     (swap.used/1024**3), ceil((swap.total/1024**3)))
-
-
-def run_app():
-    app = DashApp()
-    app._app.run_server(debug=False)
