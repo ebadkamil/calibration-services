@@ -13,7 +13,7 @@ import h5py
 import numpy as np
 
 from .processor import EvalHistogram
-from .helpers import find_proposal
+from .helpers import find_proposal, parse_ids
 from .webapp import DashApp
 
 
@@ -33,8 +33,11 @@ def detector_characterize():
                         help="upper limit energy", required=True)
     parser.add_argument("--nbins", type=int,
                         help="Number of bins", required=True)
-    parser.add_argument("--pulseids", help="Pulses '1:20:2'")
-    parser.add_argument("--dark", help="path to file with dark data")
+    parser.add_argument("--pulseids", type=str, help="Pulses '1:20:2'")
+    parser.add_argument("--eval_dark", action='store_true',
+                        help="To evaluate dark run")
+    parser.add_argument("--subtract_dark", action='store_true',
+                        help="To subtract dark from a run")
     parser.add_argument("--pixel_hist", action='store_true',
                         help="To evaluate pixel histogram")
 
@@ -48,20 +51,27 @@ def detector_characterize():
     high = args.bin_high
     nbins = args.nbins
 
-    dark_file_path = args.dark
     pixel_hist = args.pixel_hist
     pulse_ids = args.pulseids
 
+    eval_dark = args.eval_dark
+    subtract_dark = args.subtract_dark
 
-    if dark_file_path is not None:
-        # key should be mean_image
-        with h5py.File(dark_file_path, "r") as f:
-            dark_data = f[f"entry_1/instrument/module_{module}/data"][:]
+    if eval_dark:
+        counts_file = os.path.join(os.getcwd(), f"dark_module_{module}.h5")
+    else:
+        counts_file = os.path.join(os.getcwd(), f"data_module_{module}.h5")
+
+    dark_data = None
+
+    if subtract_dark:
+        file = os.path.join(os.getcwd(), f"dark_module_{module}.h5")
+        with h5py.File(file, "r") as f:
+            dark_data = f[f"entry_1/instrument/module_{module}/image"][:]
         print("Shape of dark data, ", dark_data.shape)
 
     run_path = find_proposal(proposal, run)
     bin_edges = np.linspace(low, high, nbins)
-    counts_file = os.path.join(os.getcwd(), f"data_module_{module}.h5")
 
     t0 = time.perf_counter()
     e = EvalHistogram(

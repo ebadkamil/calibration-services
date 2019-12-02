@@ -186,7 +186,7 @@ class EvalHistogram:
 
                 histogram += counts
 
-        print("Total ", total.shape)
+        print("Total ", histogram.shape)
         if train_counts != 0:
             return mean_image / train_counts, histogram
 
