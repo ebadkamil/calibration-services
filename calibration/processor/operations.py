@@ -16,6 +16,7 @@ import time
 import h5py
 import numpy as np
 
+from iminuit import Minuit
 from karabo_data import DataCollection, by_index, H5File
 from ..helpers import pulse_filter, parse_ids, find_proposal
 
@@ -33,7 +34,9 @@ class EvalHistogram:
     def __init__(self, modno, path, dettype, pixel_hist=False):
         """Initialization"""
         self.histograms = None
+        self.bin_edges = None
         self.mean_image = None
+        self.fit_params = None
 
         self.modno = modno
         self.path = path
@@ -120,7 +123,7 @@ class EvalHistogram:
                 image = image.astype(np.float32)
 
             if self.dark_run is not None:
-                dark_data = self.dark_run[:, 0, ...]
+                dark_data = self.dark_run
                 if image.shape == dark_data.shape:
                     image -= dark_data
                 else:
@@ -204,26 +207,121 @@ class EvalHistogram:
                 g.create_dataset('bins', data=bin_centers)
                 g.create_dataset('image', data=self.mean_image)
 
+    def fit_histogram(self, init_params, bounds_params,
+                      from_file=None, threshold=(-50, 120)):
+
+        histogram = self.histograms
+        bin_edges = self.bin_edges
+
+        if bin_edges is not None:
+            bin_centers = (self.bin_edges[1:] + self.bin_edges[:-1]) / 2.0
+
+        self.init_params = init_params
+        self.bounds_params = bounds_params
+
+        if from_file is not None:
+            with h5py.File(from_file, "r") as f:
+                bin_centers = \
+                    f[f"entry_1/instrument/module_{self.modno}/bins"][:]
+                histogram = \
+                    f[f"entry_1/instrument/module_{self.modno}/counts"][:]
+
+
+        if histogram is None:
+            return
+        low, high = threshold
+        idx = (bin_centers > low) & (bin_centers < high)
+
+        hist_for_each = np.split(histogram.flatten(),
+                                 np.product(histogram.shape[:-1]))
+
+        map_fitting = partial(self._fitting, idx, bin_centers)
+
+        with ProcessPoolExecutor(max_workers=20) as executor:
+            ret = executor.map(map_fitting, hist_for_each)
+
+        self.fit_params = np.array(
+            list(ret)).reshape(
+            histogram.shape[:-1]+(2*len(self.init_params)+1,))
+
+    def _fitting(self, idx, bin_centers, histogram):
+
+        def gaussian(x, *params):
+            num_gaussians = int(len(params) / 3)
+            A = params[:num_gaussians]
+            w = params[num_gaussians:2*num_gaussians]
+            c = params[2*num_gaussians:3*num_gaussians]
+            y = sum(
+                [A[i]*np.exp(-(x-c[i])**2./(w[i])) for i in range(num_gaussians)])
+
+            return y
+
+        def least_squares_np(xdata, ydata,  params):
+            y = gaussian(xdata, *params)
+            return np.sum((ydata - y) ** 2)
+
+        least_sq = partial(
+            least_squares_np,
+            bin_centers[idx],
+            histogram[idx])
+
+        m = Minuit.from_array_func(
+            least_sq,
+            self.init_params,
+            error=0.1,
+            errordef=1,
+            limit=tuple(self.bounds_params))
+
+
+        minuit_res = m.migrad()
+
+        return np.concatenate(
+            (m.np_values(),
+             m.np_errors(),
+             np.array([m.get_fmin().is_valid])))
+
+    def fit_params_to_file(self, path):
+        """Write fit params to H5 File"""
+        if all([self.fit_params is not None, path]):
+            with h5py.File(path, "w") as f:
+                g = f.create_group(f"entry_1/instrument/module_{self.modno}")
+                g.create_dataset('fit_params', data=self.fit_params)
+
 
 if __name__ == "__main__":
 
-    with h5py.File("/home/kamile/calibration_services/dark_run.h5", "r") as f:
-        dark_data = f["entry_1/instrument/module_15/data"][:]
-
-    print(f"Shape of dark data: {dark_data.shape}")
-
     path = "/gpfs/exfel/exp/MID/201931/p900091/raw/r0491"
     counts_file = "/gpfs/exfel/data/scratch/kamile/calibration_analysis/test_pixel.h5"
+    fit_file = "/gpfs/exfel/data/scratch/kamile/calibration_analysis/fit.h5"
     modno = 15
     bin_edges = np.linspace(-200, 400, 601)
-    pulse_ids = "1:20:2"
+    pulse_ids = "1:24:2"
+
+    dark_file = os.path.join(
+        "/gpfs/exfel/data/scratch/kamile/batch",
+        f"dark_module_{modno}.h5")
+
+    histogram_file = os.path.join(
+        "/gpfs/exfel/data/scratch/kamile/batch",
+        f"data_module_{modno}.h5")
+
+    with h5py.File(dark_file, "r") as f:
+        dark_data = f[f"entry_1/instrument/module_{modno}/image"][:]
+
+    print(f"Shape of dark data: {dark_data.shape}")
 
     t0 = time.perf_counter()
     e = EvalHistogram(
         modno, path, 'AGIPD', pixel_hist=True)
 
-    e.process(bin_edges, workers=4, pulse_ids=pulse_ids, dark_run=dark_data[0:10, ...])
+    # e.process(bin_edges, workers=5, pulse_ids=pulse_ids, dark_run=dark_data)
+    # e.hist_to_file(counts_file)
 
+    params = [100, 70, 50, 10, 10, 10, -25, 25, 70]
+    bounds_minuit = [(0, None), (0, None), (0, None),
+                     (0, None), (0, None), (0, None),
+                     (-50, 0), (0, 50), (40, 100)]
+
+    e.fit_histogram(params, bounds_minuit, from_file=histogram_file)
+    e.fit_params_to_file(fit_file)
     print(f"Time taken for histogram Eval.: {time.perf_counter()-t0}")
-
-    e.hist_to_file(counts_file)
