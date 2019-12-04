@@ -40,6 +40,8 @@ def detector_characterize():
                         help="To subtract dark from a run")
     parser.add_argument("--pixel_hist", action='store_true',
                         help="To evaluate pixel histogram")
+    parser.add_argument("--fit", action='store_true',
+                        help="To fit histograms")
 
     args = parser.parse_args()
     detector = args.detector
@@ -56,6 +58,8 @@ def detector_characterize():
 
     eval_dark = args.eval_dark
     subtract_dark = args.subtract_dark
+
+    fit = args.fit
 
     if eval_dark:
         counts_file = os.path.join(os.getcwd(), f"dark_module_{module}.h5")
@@ -78,6 +82,19 @@ def detector_characterize():
         module, run_path, detector, pixel_hist=pixel_hist)
     e.process(bin_edges, workers=5, pulse_ids=pulse_ids, dark_run=dark_data)
     e.hist_to_file(counts_file)
+
+    # Fixed initial parameters
+    # TODO: Make it configurable
+    if fit:
+        fit_file = os.path.join(os.getcwd(), f"fit_params_{module}.h5")
+        params = [100, 70, 50, 10, 10, 10, -25, 25, 70]
+        bounds_minuit = [(0, None), (0, None), (0, None),
+                         (0, None), (0, None), (0, None),
+                         (-50, 0), (0, 50), (40, 100)]
+
+        e.fit_histogram(params, bounds_minuit)
+        e.fit_params_to_file(fit_file)
+
     print(f"Time taken for histogram Eval.: {time.perf_counter()-t0}")
 
 
