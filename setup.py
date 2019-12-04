@@ -34,6 +34,7 @@ setup(name="calibration",
            'dask-jobqueue>=0.7.0',
            'ipywidgets>=7.5.1',
            'mpi4py>=3.0.2',
+           'iminuit',
       ],
       python_requires='>=3.6',
 )
