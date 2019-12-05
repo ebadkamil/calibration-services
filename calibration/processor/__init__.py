@@ -6,5 +6,5 @@ __all__ = [
     "DataModel",
     "eval_statistics",
     "gauss_fit",
-    "EvalHistogram"
+    "EvalHistogram",
     ]

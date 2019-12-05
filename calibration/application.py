@@ -82,9 +82,11 @@ def detector_characterize():
         module, run_path, detector, pixel_hist=pixel_hist)
     e.process(bin_edges, workers=5, pulse_ids=pulse_ids, dark_run=dark_data)
     e.hist_to_file(counts_file)
+    print(f"Time taken for histogram Eval.: {time.perf_counter()-t0}")
 
     # Fixed initial parameters
     # TODO: Make it configurable
+    t0 = time.perf_counter()
     if fit:
         fit_file = os.path.join(os.getcwd(), f"fit_params_{module}.h5")
         params = [100, 70, 50, 10, 10, 10, -25, 25, 70]
@@ -95,7 +97,7 @@ def detector_characterize():
         e.fit_histogram(params, bounds_minuit)
         e.fit_params_to_file(fit_file)
 
-    print(f"Time taken for histogram Eval.: {time.perf_counter()-t0}")
+    print(f"Time taken for Fitting: {time.perf_counter()-t0}")
 
 
 def run_dashservice():

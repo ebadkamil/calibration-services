@@ -18,6 +18,8 @@ import numpy as np
 
 from iminuit import Minuit
 from karabo_data import DataCollection, by_index, H5File
+
+from .fit_functions import least_squares_np
 from ..helpers import pulse_filter, parse_ids, find_proposal
 
 
@@ -97,7 +99,7 @@ class EvalHistogram:
         """Histogram over all or individual pixels"""
         if not seq_file:
             return
-        run = H5File(seq_file)
+        run = H5File(seq_file) #.select_trains(by_index[:20])
 
         module = [key for key in run.instrument_sources
                   if re.match(r"(.+)/DET/(.+):(.+)", key)]
@@ -218,7 +220,6 @@ class EvalHistogram:
 
         self.init_params = init_params
         self.bounds_params = bounds_params
-
         if from_file is not None:
             with h5py.File(from_file, "r") as f:
                 bin_centers = \
@@ -226,9 +227,9 @@ class EvalHistogram:
                 histogram = \
                     f[f"entry_1/instrument/module_{self.modno}/counts"][:]
 
-
         if histogram is None:
             return
+
         low, high = threshold
         idx = (bin_centers > low) & (bin_centers < high)
 
@@ -237,29 +238,13 @@ class EvalHistogram:
 
         map_fitting = partial(self._fitting, idx, bin_centers)
 
-        with ProcessPoolExecutor(max_workers=20) as executor:
-            ret = executor.map(map_fitting, hist_for_each)
+        ret = map(map_fitting, hist_for_each)
 
         self.fit_params = np.array(
             list(ret)).reshape(
             histogram.shape[:-1]+(2*len(self.init_params)+1,))
 
     def _fitting(self, idx, bin_centers, histogram):
-
-        def gaussian(x, *params):
-            num_gaussians = int(len(params) / 3)
-            A = params[:num_gaussians]
-            w = params[num_gaussians:2*num_gaussians]
-            c = params[2*num_gaussians:3*num_gaussians]
-            y = sum(
-                [A[i]*np.exp(-(x-c[i])**2./(w[i])) for i in range(num_gaussians)])
-
-            return y
-
-        def least_squares_np(xdata, ydata,  params):
-            y = gaussian(xdata, *params)
-            return np.sum((ydata - y) ** 2)
-
         least_sq = partial(
             least_squares_np,
             bin_centers[idx],
@@ -271,7 +256,6 @@ class EvalHistogram:
             error=0.1,
             errordef=1,
             limit=tuple(self.bounds_params))
-
 
         minuit_res = m.migrad()
 
