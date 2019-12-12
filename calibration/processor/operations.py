@@ -238,6 +238,9 @@ class EvalHistogram:
 
         map_fitting = partial(self._fitting, idx, bin_centers)
 
+        # with ThreadPoolExecutor(max_workers=20) as executor:
+        #     ret = executor.map(map_fitting, hist_for_each)
+
         ret = map(map_fitting, hist_for_each)
 
         self.fit_params = np.array(
@@ -258,7 +261,6 @@ class EvalHistogram:
             limit=tuple(self.bounds_params))
 
         minuit_res = m.migrad()
-
         return np.concatenate(
             (m.np_values(),
              m.np_errors(),
@@ -277,7 +279,7 @@ if __name__ == "__main__":
     path = "/gpfs/exfel/exp/MID/201931/p900091/raw/r0491"
     counts_file = "/gpfs/exfel/data/scratch/kamile/calibration_analysis/test_pixel.h5"
     fit_file = "/gpfs/exfel/data/scratch/kamile/calibration_analysis/fit.h5"
-    modno = 15
+    modno = 7
     bin_edges = np.linspace(-200, 400, 601)
     pulse_ids = "1:24:2"
 
@@ -300,7 +302,9 @@ if __name__ == "__main__":
 
     # e.process(bin_edges, workers=5, pulse_ids=pulse_ids, dark_run=dark_data)
     # e.hist_to_file(counts_file)
+    print(f"Time taken for histogram Eval.: {time.perf_counter()-t0}")
 
+    t0 = time.perf_counter()
     params = [100, 70, 50, 10, 10, 10, -25, 25, 70]
     bounds_minuit = [(0, None), (0, None), (0, None),
                      (0, None), (0, None), (0, None),

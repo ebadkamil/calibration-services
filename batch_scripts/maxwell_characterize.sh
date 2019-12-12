@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --partition=exfel
-#SBATCH --time=10:00:00       # Maximum time requested
+#SBATCH --time=14:00:00       # Maximum time requested
 #SBATCH --nodes=1             # Number of nodes
 
 echo "start at " `date`
