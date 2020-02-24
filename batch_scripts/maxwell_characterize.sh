@@ -28,6 +28,5 @@ detector_characterize ${detector} ${module} --proposal ${proposal} \
 --run ${run} --bin_low ${bin_low} --bin_high ${bin_high} --nbins ${nbins} \
 --pulseids ${pulseids} --subtract_dark --pixel_hist --fit
 
-
 if [ $? -ne 0 ]; then echo "error in $0 :QUIT detector characterize:";fi
 echo "program end at " `date`
