@@ -137,6 +137,55 @@ class SimpleImageViewer:
 
         self.tid, self.train_data = self.run.train_from_index(
             self._train_ids.value)
+        self._assemble_image()
+
+    def _assemble_image(self):
+
+        with ThreadPoolExecutor(
+            max_workers=len(self.train_data.keys())) as executor:
+            for source in self.train_data.keys():
+                executor.submit(self._corrections, source)
+        # assemble image
+        try:
+            stacked_data = stack_detector_data(self.train_data, "image.data")
+        except (ValueError, IndexError, KeyError) as e:
+            self._train_ids.disabled = False
+            return
+
+        n_images = (stacked_data.shape[0], )
+        if stacked_data.shape[0] == 0:
+            self._train_ids.disabled = False
+            return
+
+        image_dtype = stacked_data.dtype
+
+        if self.out_array is None:
+            self.out_array = self.geom.output_array_for_position_fast(
+                extra_shape=n_images, dtype=image_dtype)
+
+        self.assembled, centre = self.geom.position_all_modules(
+            stacked_data, out=self.out_array)
+
+        img_to_plot = np.nanmean(self.assembled, axis=0)
+        self._image_widget.data[0].z = img_to_plot[::2, ::2]
+        img_to_plot[np.isnan(img_to_plot)] = 0.0
+        counts, bins = np.histogram(img_to_plot.ravel(), bins=100)
+        self._hist_widget.data[0].x = (bins[1:] + bins[:-1]) / 2.0
+        self._hist_widget.data[0].y = counts
+
+        self._train_ids.disabled = False
+
+    def _corrections(self, source):
+        pattern = "(.+)/DET/(.+)CH0:xtdf"
+        modno = int((re.match(pattern, source)).group(2).strip())
+
+        image = self.train_data[source]["image.data"][:, 0, ...]
+
+        image = image.astype(np.float32)
+        if self.dark_data is not None and image.shape[0] != 0:
+            image -= self.dark_data[modno]
+
+        self.train_data[source]["image.data"] = image
 
     def control_panel(self):
         display(self._cntrl)
