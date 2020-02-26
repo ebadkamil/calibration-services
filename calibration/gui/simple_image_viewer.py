@@ -175,6 +175,16 @@ class SimpleImageViewer:
 
         self._train_ids.disabled = False
 
+    def onTrainIdChange(self, value):
+        self._train_ids.disabled = True
+        if value['new'] > len(self.run.train_ids) - 1:
+            self._train_ids.disabled = False
+            return
+        if self.run is not None:
+            self.tid, self.train_data = self.run.train_from_index(
+                self._train_ids.value)
+            self._assemble_image()
+
     def _corrections(self, source):
         pattern = "(.+)/DET/(.+)CH0:xtdf"
         modno = int((re.match(pattern, source)).group(2).strip())
