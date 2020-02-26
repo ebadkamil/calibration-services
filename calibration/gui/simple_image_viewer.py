@@ -9,6 +9,7 @@ All rights reserved.
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from functools import partial
 
+import h5py
 import ipywidgets as widgets
 from ipywidgets import Button
 from IPython.display import display
@@ -41,15 +42,16 @@ class SimpleImageViewer:
             (542.5, 475),
         ])
         self.config = config
-        self.dark_data = None
+        self.dark_data = {}
         self.out_array = None
+        self.assembled = None
         self.run = None
 
     def _initDarkRun(self):
 
         item_layout = widgets.Layout(
             display='flex',
-            flex_flow='row',
+            flex_flow='column',
             justify_content='space-between')
 
         self._run_folder = widgets.Text(
@@ -59,14 +61,34 @@ class SimpleImageViewer:
         self._load_run.button_style = 'success'
         self._load_run.on_click(self._on_load_run)
 
+        self._dark_data_path = widgets.Text(
+            value=self.config['dark_data'])
+
         self._train_ids = widgets.BoundedIntText(
             description='Train Ids:',
             continuous_update=False,
             disabled=True)
+
+        self._pulse_indices = widgets.BoundedIntText(
+            description='Pulse Ids:',
+            min=0,
+            max=2700,
+            step=1,
+            value=0,
+            continuous_update=False)
+
+        self._bins = widgets.IntText(
+            description='Bins:',
+            value=100,
+            continuous_update=False)
+
         self._train_ids.observe(self.onTrainIdChange, names='value')
+        self._pulse_indices.observe(self.onVisulizationParamChange, names='value')
+        self._bins.observe(self.onVisulizationParamChange, names='value')
 
         items_params = [
-            widgets.Box([self._train_ids], layout=item_layout),
+            widgets.Box([self._train_ids, self._pulse_indices, self._bins],
+                layout=item_layout),
         ]
 
         params = widgets.Box(items_params, layout=widgets.Layout(
@@ -79,6 +101,8 @@ class SimpleImageViewer:
         ctrl = widgets.VBox(
             [widgets.Label(value='Run Folder:'),
              self._run_folder,
+             widgets.Label(value='Dark data path:'),
+             self._dark_data_path,
              self._load_run],
             layout=widgets.Layout(
                 display='flex',
@@ -122,11 +146,11 @@ class SimpleImageViewer:
 
     def _on_load_run(self, e=None):
         self._load_run.disabled = True
-        path = self._run_folder.value
+        run_path = self._run_folder.value
         devices = [("*/DET/*CH0:xtdf", "image.data")]
-        if path:
+        if run_path:
             try:
-                self.run = RunDirectory(path).select(devices)
+                self.run = RunDirectory(run_path).select(devices)
             except Exception as ex:
                 return
         self._train_ids.min = 0
@@ -137,14 +161,41 @@ class SimpleImageViewer:
 
         self.tid, self.train_data = self.run.train_from_index(
             self._train_ids.value)
+
+        dark_path = self._dark_data_path.value
+        if dark_path:
+            try:
+                def iterate(name, node):
+                    if isinstance(node, h5py.Dataset):
+                        m = re.search("(.+)module_(.+)/data", name)
+                        if m is not None:
+                            self.dark_data[m.group(2)] = node[:]
+
+                with h5py.File(dark_path, 'r') as f:
+                    f.visititems(iterate)
+            except Exception as ex:
+                print(ex)
+
         self._assemble_image()
 
     def _assemble_image(self):
 
+        def _corrections(source):
+            pattern = "(.+)/DET/(.+)CH0:xtdf"
+            modno = int((re.match(pattern, source)).group(2).strip())
+
+            image = self.train_data[source]["image.data"][:, 0, ...]
+            image = image.astype(np.float32)
+
+            if self.dark_data and image.shape[0] != 0:
+                image -= self.dark_data[str(modno)][0:image.shape[0], ...]
+
+            self.train_data[source]["image.data"] = image
+
         with ThreadPoolExecutor(
-            max_workers=len(self.train_data.keys())) as executor:
+                max_workers=len(self.train_data.keys())) as executor:
             for source in self.train_data.keys():
-                executor.submit(self._corrections, source)
+                executor.submit(_corrections, source)
         # assemble image
         try:
             stacked_data = stack_detector_data(self.train_data, "image.data")
@@ -166,14 +217,24 @@ class SimpleImageViewer:
         self.assembled, centre = self.geom.position_all_modules(
             stacked_data, out=self.out_array)
 
-        img_to_plot = np.nanmean(self.assembled, axis=0)
+        self.onVisulizationParamChange(0)
+        self._train_ids.disabled = False
+
+    def onVisulizationParamChange(self, value):
+        pulse = self._pulse_indices.value
+        nbins = self._bins.value if self._bins.value > 2 else 100
+        if self.assembled is not None:
+            try:
+                img_to_plot = self.assembled[pulse]
+            except Exception as ex:
+                return
+
         self._image_widget.data[0].z = img_to_plot[::2, ::2]
+
         img_to_plot[np.isnan(img_to_plot)] = 0.0
-        counts, bins = np.histogram(img_to_plot.ravel(), bins=100)
+        counts, bins = np.histogram(img_to_plot.ravel(), bins=nbins)
         self._hist_widget.data[0].x = (bins[1:] + bins[:-1]) / 2.0
         self._hist_widget.data[0].y = counts
-
-        self._train_ids.disabled = False
 
     def onTrainIdChange(self, value):
         self._train_ids.disabled = True
@@ -184,18 +245,6 @@ class SimpleImageViewer:
             self.tid, self.train_data = self.run.train_from_index(
                 self._train_ids.value)
             self._assemble_image()
-
-    def _corrections(self, source):
-        pattern = "(.+)/DET/(.+)CH0:xtdf"
-        modno = int((re.match(pattern, source)).group(2).strip())
-
-        image = self.train_data[source]["image.data"][:, 0, ...]
-
-        image = image.astype(np.float32)
-        if self.dark_data is not None and image.shape[0] != 0:
-            image -= self.dark_data[modno]
-
-        self.train_data[source]["image.data"] = image
 
     def control_panel(self):
         display(self._cntrl)
