@@ -120,5 +120,23 @@ class SimpleImageViewer:
                 width='100%',
                 justify_content='space-between'))
 
+    def _on_load_run(self, e=None):
+        self._load_run.disabled = True
+        path = self._run_folder.value
+        devices = [("*/DET/*CH0:xtdf", "image.data")]
+        if path:
+            try:
+                self.run = RunDirectory(path).select(devices)
+            except Exception as ex:
+                return
+        self._train_ids.min = 0
+        self._train_ids.value = 0
+        self._train_ids.max = len(self.run.train_ids) - 2
+        self._train_ids.step = 1
+        self._load_run.disabled = False
+
+        self.tid, self.train_data = self.run.train_from_index(
+            self._train_ids.value)
+
     def control_panel(self):
         display(self._cntrl)
