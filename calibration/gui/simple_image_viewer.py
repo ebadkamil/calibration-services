@@ -6,8 +6,7 @@ Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
 All rights reserved.
 """
 
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 
 import h5py
 import ipywidgets as widgets
@@ -17,35 +16,31 @@ import numpy as np
 import plotly.graph_objs as go
 import re
 
-from karabo_data import by_index, RunDirectory, stack_detector_data
+from karabo_data import RunDirectory, stack_detector_data
 from karabo_data.geometry2 import AGIPD_1MGeometry
 
-from .logger import out, logger
-from ..helpers import parse_le, parse_ids, pulse_filter
-from ..processor import DataProcessing, DataModel, eval_statistics, gauss_fit
+from .logger import out
 
 
 class SimpleImageViewer:
     '''Control panel'''
 
     def __init__(self, config=None):
-        self._cntrl = widgets.Tab()
         self.config = config
-        self.futures = {}
-        self.data_model = {}
-        self.filtered = None
         self._cntrl = self._initDarkRun()
-        self.geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
-            (-525, 625),
-            (-550, -10),
-            (520, -160),
-            (542.5, 475),
-        ])
-        self.config = config
+        self.geom = AGIPD_1MGeometry.from_quad_positions(
+            quad_pos=[
+                (-525, 625),
+                (-550, -10),
+                (520, -160),
+                (542.5, 475),])
+
         self.dark_data = {}
         self.out_array = None
+        self.train_data = None
         self.assembled = None
         self.run = None
+        out.clear_output()
 
     def _initDarkRun(self):
 
@@ -83,12 +78,13 @@ class SimpleImageViewer:
             continuous_update=False)
 
         self._train_ids.observe(self.onTrainIdChange, names='value')
-        self._pulse_indices.observe(self.onVisulizationParamChange, names='value')
+        self._pulse_indices.observe(
+            self.onVisulizationParamChange, names='value')
         self._bins.observe(self.onVisulizationParamChange, names='value')
 
         items_params = [
             widgets.Box([self._train_ids, self._pulse_indices, self._bins],
-                layout=item_layout),
+                        layout=item_layout),
         ]
 
         params = widgets.Box(items_params, layout=widgets.Layout(
@@ -144,6 +140,7 @@ class SimpleImageViewer:
                 width='100%',
                 justify_content='space-between'))
 
+    @out.capture()
     def _on_load_run(self, e=None):
         self._load_run.disabled = True
         run_path = self._run_folder.value
@@ -175,10 +172,16 @@ class SimpleImageViewer:
                     f.visititems(iterate)
             except Exception as ex:
                 print(ex)
+                print("Dark offset was not applied")
 
         self._assemble_image()
 
+    @out.capture()
     def _assemble_image(self):
+        if self.train_data is None:
+            return
+
+        self.assembled = None
 
         def _corrections(source):
             pattern = "(.+)/DET/(.+)CH0:xtdf"
@@ -201,12 +204,12 @@ class SimpleImageViewer:
             stacked_data = stack_detector_data(self.train_data, "image.data")
         except (ValueError, IndexError, KeyError) as e:
             self._train_ids.disabled = False
-            return
+            print(e)
 
         n_images = (stacked_data.shape[0], )
         if stacked_data.shape[0] == 0:
             self._train_ids.disabled = False
-            return
+            print("Number of pulses for train are 0")
 
         image_dtype = stacked_data.dtype
 
@@ -220,24 +223,28 @@ class SimpleImageViewer:
         self.onVisulizationParamChange(0)
         self._train_ids.disabled = False
 
+    @out.capture()
     def onVisulizationParamChange(self, value):
         pulse = self._pulse_indices.value
         nbins = self._bins.value if self._bins.value > 2 else 100
         if self.assembled is not None:
             try:
-                img_to_plot = self.assembled[pulse]
+                img_to_plot = np.copy(self.assembled[pulse])
             except Exception as ex:
+                print(ex)
                 return
 
         self._image_widget.data[0].z = img_to_plot[::2, ::2]
 
-        img_to_plot[np.isnan(img_to_plot)] = 0.0
-        counts, bins = np.histogram(img_to_plot.ravel(), bins=nbins)
+        counts, bins = np.histogram(
+            img_to_plot[~np.isnan(img_to_plot)].ravel(), bins=nbins)
         self._hist_widget.data[0].x = (bins[1:] + bins[:-1]) / 2.0
         self._hist_widget.data[0].y = counts
 
     def onTrainIdChange(self, value):
         self._train_ids.disabled = True
+        self.train_data = None
+
         if value['new'] > len(self.run.train_ids) - 1:
             self._train_ids.disabled = False
             return
@@ -247,4 +254,4 @@ class SimpleImageViewer:
             self._assemble_image()
 
     def control_panel(self):
-        display(self._cntrl)
+        display(self._cntrl, out)
