@@ -17,7 +17,7 @@ import plotly.graph_objs as go
 import re
 
 from karabo_data import RunDirectory, stack_detector_data
-from karabo_data.geometry2 import AGIPD_1MGeometry
+from karabo_data.geometry2 import AGIPD_1MGeometry, LPD_1MGeometry
 
 from .logger import out
 
@@ -25,21 +25,33 @@ from .logger import out
 class SimpleImageViewer:
     '''Control panel'''
 
-    def __init__(self, config=None):
+    def __init__(self, dettype, config=None):
         self.config = config
         self._cntrl = self._initDarkRun()
-        self.geom = AGIPD_1MGeometry.from_quad_positions(
-            quad_pos=[
-                (-525, 625),
-                (-550, -10),
-                (520, -160),
-                (542.5, 475),])
+
+        self.dettype = dettype
+        assert self.dettype in ["AGIPD", "LPD"]
+        if self.dettype == 'AGIPD':
+            self.geom = AGIPD_1MGeometry.from_quad_positions(
+                quad_pos=[
+                    (-525, 625),
+                    (-550, -10),
+                    (520, -160),
+                    (542.5, 475),])
+        else:
+            self.geom = LPD_1MGeometry.from_quad_positions(
+                quad_pos=[
+                    [11.4, 299],
+                    [-11.5, 8],
+                    [254.5, -16],
+                    [278.5, 275]],)
 
         self.dark_data = {}
         self.out_array = None
         self.train_data = None
         self.assembled = None
         self.run = None
+
         out.clear_output()
 
     def _initDarkRun(self):
@@ -186,8 +198,11 @@ class SimpleImageViewer:
         def _corrections(source):
             pattern = "(.+)/DET/(.+)CH0:xtdf"
             modno = int((re.match(pattern, source)).group(2).strip())
-
-            image = self.train_data[source]["image.data"][:, 0, ...]
+            if self.dettype == "AGIPD":
+                image = self.train_data[source]["image.data"][:, 0, ...]
+            else:
+                image = np.squeeze(
+                    self.train_data[source]["image.data"], axis=1)
             image = image.astype(np.float32)
 
             if self.dark_data and image.shape[0] != 0:
@@ -234,7 +249,7 @@ class SimpleImageViewer:
                 print(ex)
                 return
 
-        self._image_widget.data[0].z = img_to_plot[::2, ::2]
+        self._image_widget.data[0].z = img_to_plot
 
         counts, bins = np.histogram(
             img_to_plot[~np.isnan(img_to_plot)].ravel(), bins=nbins)
