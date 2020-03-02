@@ -37,7 +37,7 @@ class SimpleImageViewer:
                     (-525, 625),
                     (-550, -10),
                     (520, -160),
-                    (542.5, 475),])
+                    (542.5, 475), ])
         else:
             self.geom = LPD_1MGeometry.from_quad_positions(
                 quad_pos=[
@@ -62,14 +62,16 @@ class SimpleImageViewer:
             justify_content='space-between')
 
         self._run_folder = widgets.Text(
-            value=self.config['run_folder'])
+            value=self.config['run_folder'],
+            description='Run Folder:',)
 
         self._load_run = Button(description='Load Run')
         self._load_run.button_style = 'success'
         self._load_run.on_click(self._on_load_run)
 
         self._dark_data_path = widgets.Text(
-            value=self.config['dark_data'])
+            value=self.config['dark_data'],
+            description='Dark data:')
 
         self._train_ids = widgets.BoundedIntText(
             description='Train Ids:',
@@ -82,20 +84,39 @@ class SimpleImageViewer:
             max=2700,
             step=1,
             value=0,
+            disabled=True,
             continuous_update=False)
 
         self._bins = widgets.IntText(
             description='Bins:',
             value=100,
-            continuous_update=False)
+            disabled=True,
+            continuous_update=False,)
+
+        self._threshold_mask = widgets.FloatRangeSlider(
+            value=[-10000, 10000],
+            min=-10000,
+            max=10000,
+            step=10.0,
+            description='Mask:',
+            disabled=True,
+            continuous_update=False,
+            orientation='horizontal',
+            readout=True,
+            readout_format='.1f')
 
         self._train_ids.observe(self.onTrainIdChange, names='value')
         self._pulse_indices.observe(
             self.onVisulizationParamChange, names='value')
         self._bins.observe(self.onVisulizationParamChange, names='value')
+        self._threshold_mask.observe(
+            self.onVisulizationParamChange, names='value')
 
         items_params = [
-            widgets.Box([self._train_ids, self._pulse_indices, self._bins],
+            widgets.Box([self._train_ids,
+                         self._pulse_indices,
+                         self._bins,
+                         self._threshold_mask],
                         layout=item_layout),
         ]
 
@@ -107,9 +128,7 @@ class SimpleImageViewer:
         ))
 
         ctrl = widgets.VBox(
-            [widgets.Label(value='Run Folder:'),
-             self._run_folder,
-             widgets.Label(value='Dark data path:'),
+            [self._run_folder,
              self._dark_data_path,
              self._load_run],
             layout=widgets.Layout(
@@ -120,7 +139,7 @@ class SimpleImageViewer:
                 justify_content='space-between'))
 
         self._image_widget = go.FigureWidget(
-            data=go.Heatmap(showscale=False))
+            data=go.Heatmap())
         self._hist_widget = go.FigureWidget(data=go.Bar())
 
         self._plot_widgets = widgets.HBox(
@@ -185,6 +204,7 @@ class SimpleImageViewer:
             except Exception as ex:
                 print(ex)
                 print("Dark offset was not applied")
+                self.dark_data = {}
 
         self._assemble_image()
 
@@ -236,37 +256,61 @@ class SimpleImageViewer:
             stacked_data, out=self.out_array)
 
         self.onVisulizationParamChange(0)
-        self._train_ids.disabled = False
 
     @out.capture()
     def onVisulizationParamChange(self, value):
+        description = None
+        if value != 0:
+            description = value['owner'].description
+        self.widgetsOnParamsChange()
+
         pulse = self._pulse_indices.value
         nbins = self._bins.value if self._bins.value > 2 else 100
+        start, stop = self._threshold_mask.value
+
         if self.assembled is not None:
             try:
                 img_to_plot = np.copy(self.assembled[pulse])
+                img_to_plot[(img_to_plot < start) | (
+                    img_to_plot > stop)] = np.nan
             except Exception as ex:
                 print(ex)
+                self.widgetsOnParamsChanged()
                 return
 
-        self._image_widget.data[0].z = img_to_plot
+        if value == 0 or description != "Bins:":
+            self._image_widget.data[0].z = img_to_plot
 
         counts, bins = np.histogram(
             img_to_plot[~np.isnan(img_to_plot)].ravel(), bins=nbins)
         self._hist_widget.data[0].x = (bins[1:] + bins[:-1]) / 2.0
         self._hist_widget.data[0].y = counts
+        self.widgetsOnParamsChanged()
 
     def onTrainIdChange(self, value):
-        self._train_ids.disabled = True
+        self.widgetsOnParamsChange()
         self.train_data = None
 
         if value['new'] > len(self.run.train_ids) - 1:
             self._train_ids.disabled = False
+            print("Train Index out of range")
             return
         if self.run is not None:
             self.tid, self.train_data = self.run.train_from_index(
                 self._train_ids.value)
             self._assemble_image()
+
+    def widgetsOnParamsChange(self):
+        self._train_ids.disabled = True
+        self._pulse_indices.disabled = True
+        self._bins.disabled = True
+        self._threshold_mask.disabled = True
+
+    def widgetsOnParamsChanged(self):
+        self._train_ids.disabled = False
+        self._pulse_indices.disabled = False
+        self._bins.disabled = False
+        self._threshold_mask.disabled = False
 
     def control_panel(self):
         display(self._cntrl, out)
