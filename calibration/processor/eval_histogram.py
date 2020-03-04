@@ -191,9 +191,11 @@ class EvalHistogram:
 
                 histogram += counts
 
-        print("Total ", histogram.shape)
         if train_counts != 0:
+            print("Total ", histogram.shape)
             return mean_image / train_counts, histogram
+        else:
+            return None, None
 
     def hist_to_file(self, path):
         """Write histograms to H5 File"""
