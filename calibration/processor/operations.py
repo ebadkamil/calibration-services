@@ -24,7 +24,7 @@ from ..helpers import pulse_filter, parse_ids, find_proposal
 
 
 def dark_offset(proposal, run, module_number, *,
-                pulse_ids=None, dettype='AGIPD'):
+                pulse_ids=None, dettype='AGIPD', eval_std=False):
     """ Process Dark data
 
     Parameters
@@ -44,11 +44,17 @@ def dark_offset(proposal, run, module_number, *,
         Default: all pulses ":"
     dettype: str
         "AGIPD", "LPD"
+    eval_std: bool
+        True: Evaluate standard deviation
+        Default: False
 
     Return
     ------
-    out: ndarray
-        Shape: (n_pulses, ..., slow_scan, fast_scan)
+    out: tuple or ndarray
+        if eval_std is set to False
+            ndarray: Shape: (n_pulses, ..., slow_scan, fast_scan)
+        if eval_std is set to True
+            tuple: (mean_image, std)
     """
     path = find_proposal(proposal, run)
     if module_number not in range(16):
@@ -78,6 +84,8 @@ def dark_offset(proposal, run, module_number, *,
 
     mean_image = 0
     train_counts = 0
+    std = 0
+
     for tid, data in run.trains():
         if dettype == 'LPD':
             image = np.squeeze(
@@ -93,11 +101,20 @@ def dark_offset(proposal, run, module_number, *,
         else:
             image = image.astype(np.float32)
 
-        mean_image += image
         train_counts += 1
 
+        if eval_std:
+            mean_temp = mean_image
+
+        mean_image  = mean_image + (image - mean_image) / train_counts
+
+        if eval_std:
+            std = std + (image - mean_temp) * (image - mean_image)
+
     if train_counts != 0:
-        return mean_image / train_counts
+        if eval_std:
+            return mean_image, np.sqrt(std / train_counts)
+        return mean_image
 
 
 def _eval(seq, pulses, dettype, rois=None, dark_run=None):
@@ -383,9 +400,9 @@ def gain_corrected_roi_intensity(module_number, proposal, run, dark_run, *,
     medium = dark_run["medium"]
     low = dark_run["low"]
 
-    if all(isinstance(high, dict), 
-           isinstance(medium, dict), 
-           isinstance(low, dict)):
+    if all([isinstance(high, dict), 
+            isinstance(medium, dict), 
+            isinstance(low, dict)]):
         high = high[module_number]
         medium = medium[module_number]
         low = low[module_number]
