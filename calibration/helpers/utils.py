@@ -5,10 +5,23 @@ Author: Ebad Kamil <ebad.kamil@xfel.eu>
 Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
 All rights reserved.
 """
+from functools import wraps
 from glob import iglob
 from itertools import chain
 import os.path as osp
 import psutil as ps
+
+
+def timeit(original):
+    import time
+    @wraps(original)
+    def wrapper(*args, **kwargs):
+        t0 = time.perf_counter()
+        result = original(*args, **kwargs)
+        print(f"Time to evaluate {original.__name__} with args {args}"
+              f" : {time.perf_counter() - t0} secs")
+        return result
+    return wrapper
 
 
 def pulse_filter(pulse_ids, data_counts):

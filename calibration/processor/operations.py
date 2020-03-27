@@ -20,9 +20,10 @@ import xarray as xr
 
 from karabo_data import DataCollection, by_index, H5File
 
-from ..helpers import pulse_filter, parse_ids, find_proposal
+from ..helpers import pulse_filter, parse_ids, find_proposal, timeit
 
 
+@timeit
 def dark_offset(proposal, run, module_number, *,
                 pulse_ids=None, dettype='AGIPD', eval_std=False):
     """ Process Dark data
@@ -116,7 +117,7 @@ def dark_offset(proposal, run, module_number, *,
             return mean_image, np.sqrt(std / train_counts)
         return mean_image
 
-
+@timeit
 def module_roi_intensity(module_number, proposal, run, *,
                          pulse_ids=None, rois=None,
                          dettype='AGIPD', dark_run=None,
