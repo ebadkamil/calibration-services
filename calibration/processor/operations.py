@@ -117,56 +117,6 @@ def dark_offset(proposal, run, module_number, *,
         return mean_image
 
 
-def _eval(seq, pulses, dettype, rois=None, dark_run=None):
-    run = H5File(seq)
-    module = [key for key in run.instrument_sources
-              if re.match(r"(.+)/DET/(.+):(.+)", key)]
-
-    if len(module) != 1:
-        return
-
-    run = run.select([(module[0], "image.data")])
-    partial_intensities = []
-    partial_train_ids = []
-    for tid, data in run.trains():
-        if dettype == 'LPD':
-            image = np.squeeze(
-                data[module[0]]["image.data"], axis=1) # (pulses, 1, ss, fs)
-        else:
-            image = data[module[0]]["image.data"][:, 0, ...]
-        if image.shape[0] == 0:
-            continue
-
-        if rois is not None:
-            x0, x1, y0, y1 = rois
-            image = image[..., x0:x1, y0:y1]
-
-        if pulses != [-1]:
-            image = image[pulses, ...].astype(np.float32)
-        else:
-            image = image.astype(np.float32)
-        if dark_run is not None:
-            if pulses != [-1]:
-                dark_data = dark_run[pulses, ...]
-            else:
-                dark_data = dark_run
-
-            if rois is not None:
-                x0, x1, y0, y1 = rois
-                dark_data = dark_data[..., x0:x1, y0:y1]
-
-            if image.shape == dark_data.shape:
-                image -= dark_data
-            else:
-                raise ValueError(''
-                    f"Different data shapes, dark_data: {dark_data.shape}"
-                    f" Run data: {image.shape}")
-
-        partial_intensities.append(np.mean(image, axis=(-1, -2)))
-        partial_train_ids.append(tid)
-
-    return partial_intensities, partial_train_ids
-
 def module_roi_intensity(module_number, proposal, run, *,
                          pulse_ids=None, rois=None,
                          dettype='AGIPD', dark_run=None,
@@ -189,7 +139,8 @@ def module_roi_intensity(module_number, proposal, run, *,
                 "1,2,3, 5:10" mix of above two
         Default: all pulses ":"
     rois: list
-        [x0, x1, y0, y1]
+        In case of one roi: [x0, x1, y0, y1]
+        For multiple rois: [[x0, x1, y0, y1], [x0, x1, y0, y1], ...]
     dettype: str
         "AGIPD", "LPD"
     dark_run: (numpy.ndarray) or dict optional
@@ -215,35 +166,6 @@ def module_roi_intensity(module_number, proposal, run, *,
         print(f"Module number should be in range 0-15, got {module_number}")
         return
 
-    # pattern = f"(.+){dettype}{module_number:02d}-S(.+).h5"
-
-    # sequences = [osp.join(path, f) for f in os.listdir(path)
-    #              if f.endswith('.h5') and re.match(pattern, f)]
-
-    # pulse_ids = ":" if pulse_ids is None else pulse_ids
-    # pulses = parse_ids(pulse_ids)
-
-    # evaluate = partial(_eval,
-    #     pulses=pulses, dettype=dettype, dark_run=dark_run, rois=rois)
-
-    # intensities = []
-    # train_ids = []
-
-    # with ProcessPoolExecutor(max_workers=2) as executor:
-    #     for partial_intensities, partial_train_ids in executor.map(
-    #         evaluate, sorted(sequences)):
-    #         if partial_intensities and partial_train_ids:
-    #             intensities.extend(partial_intensities)
-    #             train_ids.extend(partial_train_ids)
-
-    # if not intensities or not train_ids:
-    #     return
-
-    # coords = {'trainId': np.array(train_ids)}
-    # dims = ['trainId', 'dim_0']
-    # data = xr.DataArray(np.stack(intensities), dims=dims, coords=coords)
-
-    # return data
     pattern = f"(.+){dettype}{module_number:02d}(.+)"
 
     files = [os.path.join(path, f) for f in os.listdir(path)
@@ -260,7 +182,7 @@ def module_roi_intensity(module_number, proposal, run, *,
     if len(module) != 1:
         return
 
-    run = run.select([(module[0], "image.data")])
+    run = run.select([(module[0], "image.data")]) # for debug .select_trains(by_index[100:200])
 
     pulse_ids = ":" if pulse_ids is None else pulse_ids
     pulses = parse_ids(pulse_ids)
@@ -278,51 +200,63 @@ def module_roi_intensity(module_number, proposal, run, *,
         if image.shape[0] == 0:
             continue
 
+        roi_images = [image]
         if rois is not None:
-            x0, x1, y0, y1 = rois
-            image = image[..., x0:x1, y0:y1]
+            if not isinstance(rois[0], list):
+                rois = [rois]
+            roi_images = [image[..., x0:x1, y0:y1] for x0, x1, y0, y1 in rois]
 
         if pulses != [-1]:
-            image = image[pulses, ...].astype(np.float32)
+            roi_images = [
+                img[pulses, ...].astype(np.float32) for img in roi_images] 
         else:
-            image = image.astype(np.float32)
+            roi_images = [ 
+                img.astype(np.float32) for img in roi_images] 
 
         if dark_run is not None:
             if not isinstance(dark_run, np.ndarray): # passed as a dict
-                dark_data = dark_run[str(module_number)]
+                try:
+                    dark_data = dark_run[str(module_number)]
+                except KeyError:
+                    dark_data = dark_run[module_number]
             else:
                 dark_data = dark_run
 
-            if pulses != [-1]:
-                dark_data = dark_data[pulses, ...]
+            dark_roi_images = [dark_data]
 
             if rois is not None:
-                x0, x1, y0, y1 = rois
-                dark_data = dark_data[..., x0:x1, y0:y1]
+                if not isinstance(rois[0], list):
+                    rois = [rois]
+                dark_roi_images = [
+                    dark_data[..., x0:x1, y0:y1] for x0, x1, y0, y1 in rois]
 
-            if image.shape == dark_data.shape:
-                image -= dark_data
-            else:
-                raise ValueError(
-                    f"Different data shapes, dark_data: {dark_data.shape}"
-                    f" Run data: {image.shape}")
+            if pulses != [-1]:
+                dark_roi_images = [img[pulses, ...] for img in dark_roi_images]
 
-        intensities.append(np.mean(image, axis=(-1, -2)))
+            if not all(map(
+                lambda x, y: x.shape == y.shape, roi_images, dark_roi_images)):
+                raise ValueError("Shapes of image and dark data don't match")
+
+            roi_images = [ 
+                roi_images[i] - dark_roi_images[i] for i in range(len(roi_images))]
+
+        intensities.append(
+            np.stack([np.mean(img, axis=(-1, -2)) for img in roi_images]))
         train_ids.append(tid)
 
     if not intensities or not train_ids:
         return
 
     coords = {'trainId': np.array(train_ids)}
-    dims = ['trainId', 'dim_0']
-    data = xr.DataArray(np.stack(intensities), dims=dims, coords=coords)
+    dims = ['trainId', 'rois', 'mem_cells']
+    data = xr.DataArray(data=np.stack(intensities), dims=dims, coords=coords)
 
     if use_xgm is not None:
         files = [f for f in os.listdir(path) if f.endswith('.h5')]
         files = [os.path.join(path, f) for f in fnmatch.filter(files, '*DA*')]
 
         xgm_data = DataCollection.from_paths(files).get_array(
-            use_xgm, "data.intensityTD")
+            use_xgm, "data.intensityTD", extra_dims=['mem_cells'])
 
         if pulses != [-1]:
             xgm_data = xgm_data[:, pulses]
@@ -332,6 +266,9 @@ def module_roi_intensity(module_number, proposal, run, *,
         data, xgm_data = xr.align(data, xgm_data)
         return data / xgm_data
 
+    if data.shape[1] == 1:
+        # to keep old notebooks happy with no rois dim
+        return data.squeeze(axis=1)
     return data
 
 
@@ -445,7 +382,7 @@ def gain_corrected_roi_intensity(module_number, proposal, run, dark_run, *,
 
     coords = {'trainId': np.array(train_ids)}
     dims = ['trainId', 'tiles', 'mem_cells']
-    data = xr.DataArray(np.stack(intensities), dims=dims, coords=coords)
+    data = xr.DataArray(data=np.stack(intensities), dims=dims, coords=coords)
 
     return data
 
