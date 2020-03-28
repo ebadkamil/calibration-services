@@ -1,6 +1,7 @@
 from .data_processing import DataProcessing, DataModel, eval_statistics, gauss_fit
 from .eval_histogram import EvalHistogram
 from .operations import dark_offset, module_roi_intensity, gain_corrected_roi_intensity
+from .base_roi_intensity import AgipdRoiIntensity
 
 __all__ = [
     "DataProcessing",

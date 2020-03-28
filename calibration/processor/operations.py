@@ -183,7 +183,7 @@ def module_roi_intensity(module_number, proposal, run, *,
     if len(module) != 1:
         return
 
-    run = run.select([(module[0], "image.data")]) # for debug .select_trains(by_index[100:200])
+    run = run.select([(module[0], "image.data")]).select_trains(by_index[100:200])
 
     pulse_ids = ":" if pulse_ids is None else pulse_ids
     pulses = parse_ids(pulse_ids)
@@ -262,10 +262,12 @@ def module_roi_intensity(module_number, proposal, run, *,
         if pulses != [-1]:
             xgm_data = xgm_data[:, pulses]
         else:
-            xgm_data = xgm_data[:, 0:data.shape[0]]
+            xgm_data = xgm_data[:, 0:data.shape[-1]]
 
         data, xgm_data = xr.align(data, xgm_data)
-        return data / xgm_data
+        if data.shape[1] == 1:
+        # to keep old notebooks happy with no rois dim
+            return (data / xgm_data).squeeze(axis=1)
 
     if data.shape[1] == 1:
         # to keep old notebooks happy with no rois dim

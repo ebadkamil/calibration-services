@@ -14,6 +14,7 @@ import psutil as ps
 
 def timeit(original):
     import time
+
     @wraps(original)
     def wrapper(*args, **kwargs):
         t0 = time.perf_counter()
