@@ -49,6 +49,12 @@ class BaseRoiIntensity(object):
         self.rois = None
         self.roi_intensity = None
 
+    def __call__(self, **kwargs):
+        """kwargs should be a subset of kwargs in 
+           method :eval_module_roi_intensity:"""
+        self.eval_module_roi_intensity(**kwargs)
+        return self.roi_intensity
+
     def eval_module_roi_intensity(
         self, rois=None, pulse_ids=None,
         dark_run=None, gain=None,
@@ -90,7 +96,7 @@ class BaseRoiIntensity(object):
         if len(module) != 1:
             return
 
-        run = run.select([(module[0], "image.data")]) # for debug .select_trains(by_index[100:200])
+        run = run.select([(module[0], "image.data")])# for debug .select_trains(by_index[100:200])
 
         pulse_ids = ":" if pulse_ids is None else pulse_ids
         self.pulses = parse_ids(pulse_ids)
@@ -207,4 +213,3 @@ class AgipdRoiIntensity(BaseRoiIntensity):
             self.roi_intensity, normalizer_data)
         
         self.roi_intensity /= normalizer_data
-
