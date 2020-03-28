@@ -183,7 +183,7 @@ def module_roi_intensity(module_number, proposal, run, *,
     if len(module) != 1:
         return
 
-    run = run.select([(module[0], "image.data")]).select_trains(by_index[100:200])
+    run = run.select([(module[0], "image.data")])# for debug .select_trains(by_index[100:200])
 
     pulse_ids = ":" if pulse_ids is None else pulse_ids
     pulses = parse_ids(pulse_ids)
@@ -239,7 +239,8 @@ def module_roi_intensity(module_number, proposal, run, *,
                 raise ValueError("Shapes of image and dark data don't match")
 
             roi_images = [ 
-                roi_images[i] - dark_roi_images[i] for i in range(len(roi_images))]
+                roi_images[i] - dark_roi_images[i]
+                for i in range(len(roi_images))]
 
         intensities.append(
             np.stack([np.mean(img, axis=(-1, -2)) for img in roi_images]))
