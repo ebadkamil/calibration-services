@@ -20,7 +20,21 @@ from ..helpers import pulse_filter, parse_ids, find_proposal, timeit
 
 
 class BaseRoiIntensity(object):
+    """Base class to evaluate ROI intensities
 
+    Attributes:
+    -----------
+    modno: str, int
+        Channel number between 0, 15
+    proposal: str, int
+        A proposal number, such as 2012, '2012', 'p002012', or a path such as
+        '/gpfs/exfel/exp/SPB/201701/p002012'.
+    run: str, int
+        A run number such as 243, '243' or 'r0243'.
+    dettype: (str) AGIPD, LPD
+    roi_intensity: xarray
+        Labelled xarray dims = ("trainId, rois, mem_cells")
+        Shape of numpy array: (n_trains, n_rois, n_pulses)"""
     def __init__(self, modno, proposal, run, dettype):
 
         if not isinstance(modno, int):
@@ -39,10 +53,30 @@ class BaseRoiIntensity(object):
         self, rois=None, pulse_ids=None,
         dark_run=None, gain=None,
         use_normalizer=None):
-
+        """
+        pulse_ids: str
+            For eg. ":" to select all pulses in a train
+                    "start:stop:step" to select indices with certain step size
+                    "1,2,3" comma separated pulse index to select specific pulses
+                    "1,2,3, 5:10" mix of above two
+            Default: all pulses ":"
+        rois: list
+            In case of one roi: [x0, x1, y0, y1]
+            For multiple rois: [[x0, x1, y0, y1], [x0, x1, y0, y1], ...]
+        dettype: str
+            "AGIPD", "LPD"
+        dark_run: (numpy.ndarray) or dict optional
+            dark_data shape (n_pulses, slow_scan, fast_scan)
+            dark_run[module_number] of shape (n_pulses, slow_scan, fast_scan)
+            Default: None,
+            If provided dark data will be subtracted from images
+        use_normalizer: tuple
+            (source_name, property)
+        """
         pattern = f"(.+){self.dettype}{self.modno:02d}(.+)"
 
-        files = [os.path.join(self.run_path, f) for f in os.listdir(self.run_path)
+        files = [os.path.join(self.run_path, f) 
+                 for f in os.listdir(self.run_path)
                  if f.endswith('.h5') and re.match(pattern, f)]
 
         if not files:
@@ -108,17 +142,23 @@ class BaseRoiIntensity(object):
                 self.normalize(use_normalizer)
 
     def correct(self, offset=None, gain=None):
+        """Hook to use for correction of images
+           Implement in inherited class"""
         pass
 
     def normalize(self):
+        """Hook to use for Normalizion of roi_intensity
+           Implement in inherited class"""
         pass
 
 
 class AgipdRoiIntensity(BaseRoiIntensity):
+    """AgipdRoiIntensity class to correct and normalize roi_intensity"""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def correct(self, offset=None, gain=None):
+        """Subtract offset from roi_images"""
         if offset is not None:
             if not isinstance(offset, np.ndarray): # passed as a dict
                 try:
@@ -149,6 +189,7 @@ class AgipdRoiIntensity(BaseRoiIntensity):
                 for i in range(len(self.roi_images))]
 
     def normalize(self, normalizer):
+        """Normalize roi_intensity with pulse resolved normalizer"""
         src, prop = normalizer
         files = [f for f in os.listdir(self.run_path) if f.endswith('.h5')]
         files = [os.path.join(self.run_path, f)
