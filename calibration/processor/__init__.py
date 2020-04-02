@@ -1,6 +1,6 @@
 from .data_processing import DataProcessing, DataModel, eval_statistics, gauss_fit
 from .eval_histogram import EvalHistogram
-from .operations import dark_offset, module_roi_intensity, gain_corrected_roi_intensity
+from .operations import dark_offset, module_roi_intensity
 from .roi_intensity import ModuleRoiIntensity, GainAdjustedRoiIntensity
 
 __all__ = [
@@ -11,7 +11,6 @@ __all__ = [
     "EvalHistogram",
     "dark_offset",
     "module_roi_intensity",
-    "gain_corrected_roi_intensity",
     "ModuleRoiIntensity",
     "GainAdjustedRoiIntensity"
     ]
