@@ -1,5 +1,5 @@
 """
-Calibration analysis and visualization for AGIPD Detector
+Calibration analysis and visualization for different detectors
 
 Author: Ebad Kamil <ebad.kamil@xfel.eu>
 Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
@@ -20,7 +20,7 @@ def timeit(original):
         t0 = time.perf_counter()
         result = original(*args, **kwargs)
         print(f"Time to evaluate {original.__name__} with args {args}"
-              f" : {time.perf_counter() - t0} secs")
+              f" : {time.perf_counter() - t0:.2f} secs")
         return result
     return wrapper
 
