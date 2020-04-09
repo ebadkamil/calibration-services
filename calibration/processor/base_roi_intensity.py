@@ -12,6 +12,7 @@ import re
 import time
 
 import numpy as np
+import plotly.graph_objects as go
 import xarray as xr
 
 from karabo_data import DataCollection, by_index, H5File
@@ -96,7 +97,7 @@ class BaseRoiIntensity(object):
         if len(module) != 1:
             return
 
-        run = run.select([(module[0], "image.data")])# for debug .select_trains(by_index[100:200])
+        run = run.select([(module[0], "image.data")])# Debug .select_trains(by_index[100:1000])
 
         pulse_ids = ":" if pulse_ids is None else pulse_ids
         self.pulses = parse_ids(pulse_ids)
@@ -146,6 +147,52 @@ class BaseRoiIntensity(object):
 
             if use_normalizer is not None:
                 self.normalize(use_normalizer)
+
+    def plot_scan(self, src, prop):
+        """Plot roi_intensity wrt to scan variable.
+           Scan variable should be one value per train id.
+        src: str
+            karabo device ID
+        prop: str
+            karabo property  
+        Return:
+        -------
+        fig: plotly Figure object
+            use fig.show() to render in notebooks
+        """
+        files = [f for f in os.listdir(self.run_path) if f.endswith('.h5')]
+        files = [os.path.join(self.run_path, f)
+                 for f in fnmatch.filter(files, '*DA*')]
+
+        scan_data = DataCollection.from_paths(files).get_array(src, prop)
+
+        assert len(scan_data.shape) == 1
+
+        align = xr.merge(
+            [self.roi_intensity.rename('roi_intensity'), 
+             scan_data.rename('scan_data')], 
+             join='inner')
+        mean_align = align.groupby('scan_data').mean(dim=['trainId'])
+        std_align = align.groupby('scan_data').std(dim=['trainId'])
+        
+        data = []
+        for pulse in range(mean_align['roi_intensity'].shape[-1]):
+            data.append(
+                go.Scatter(
+                    x=mean_align['scan_data'].values, 
+                    y=mean_align['roi_intensity'][:, 0, pulse].values, 
+                    error_y=dict(
+                        type='data',
+                        array=std_align['roi_intensity'][:, 0, pulse].values,
+                        visible=True),
+                    mode='lines+markers', 
+                    name=f"Pulse index: {pulse}"))
+
+        fig = go.Figure(data=data, 
+                        layout=go.Layout(
+                        title=go.layout.Title(
+                            text=f"Module number {self.modno}")))
+        return fig
 
     def correct(self, offset=None, gain=None):
         """Hook to use for correction of images
