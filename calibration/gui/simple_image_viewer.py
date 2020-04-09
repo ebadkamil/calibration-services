@@ -7,6 +7,7 @@ All rights reserved.
 """
 
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 
 import h5py
 import ipywidgets as widgets
@@ -190,6 +191,7 @@ class SimpleImageViewer:
         self.tid, self.train_data = self.run.train_from_index(
             self._train_ids.value)
 
+        self.dark_data = {}
         dark_path = self._dark_data_path.value
         if dark_path:
             try:
@@ -204,7 +206,6 @@ class SimpleImageViewer:
             except Exception as ex:
                 print(ex)
                 print("Dark offset was not applied")
-                self.dark_data = {}
 
         self._assemble_image()
 
@@ -279,7 +280,7 @@ class SimpleImageViewer:
                 return
 
         if value == 0 or description != "Bins:":
-            self._image_widget.data[0].z = img_to_plot
+            self._image_widget.data[0].z = img_to_plot[::3, ::3]
 
         counts, bins = np.histogram(
             img_to_plot[~np.isnan(img_to_plot)].ravel(), bins=nbins)
