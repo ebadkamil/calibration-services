@@ -172,26 +172,54 @@ class BaseRoiIntensity(object):
             [self.roi_intensity.rename('roi_intensity'), 
              scan_data.rename('scan_data')], 
              join='inner')
+
+        # Take mean and std after grouping with scan data
         mean_align = align.groupby('scan_data').mean(dim=['trainId'])
         std_align = align.groupby('scan_data').std(dim=['trainId'])
         
+        shape = mean_align['roi_intensity'].shape
+        # Plotly traces
         data = []
-        for pulse in range(mean_align['roi_intensity'].shape[-1]):
-            data.append(
-                go.Scatter(
-                    x=mean_align['scan_data'].values, 
-                    y=mean_align['roi_intensity'][:, 0, pulse].values, 
-                    error_y=dict(
-                        type='data',
-                        array=std_align['roi_intensity'][:, 0, pulse].values,
-                        visible=True),
-                    mode='lines+markers', 
-                    name=f"Pulse index: {pulse}"))
+        for n, pulse in enumerate(range(shape[-1])):
+            for roi in range(shape[-2]):
+                data.append(
+                    go.Scatter(
+                        x=mean_align['scan_data'], 
+                        y=mean_align['roi_intensity'][:, roi, pulse], 
+                        error_y=dict(
+                            type='data',
+                            array=std_align['roi_intensity'][:, roi, pulse],
+                            visible=True),
+                        visible = False,
+                        mode='lines+markers', 
+                        name=f"Pulse index: {pulse}"))
+            data[n * mean_align['roi_intensity'].shape[-2]].visible = True
 
-        fig = go.Figure(data=data, 
-                        layout=go.Layout(
-                        title=go.layout.Title(
-                            text=f"Module number {self.modno}")))
+
+        options_dd = []
+        for roi in range(self.roi_intensity.shape[-2]):
+            visible = [False] * self.roi_intensity.shape[-2]
+            visible[roi] = True
+            temp_dict = dict(label = str(f"ROI: {roi}"),
+                         method = 'update',
+                         args = [{'visible': visible}])
+            options_dd.append(temp_dict)
+
+        updatemenus = [dict(
+            buttons=options_dd,
+            direction="down",
+            showactive=True,
+            x=0.,
+            xanchor="right",
+            y=1,
+            yanchor="top")]
+
+        fig = go.Figure(data=data)
+        fig.update_layout(updatemenus=updatemenus,
+                          title=f'Module {self.modno}',
+                          xaxis=dict(title=f"Scan variable ({src}/{prop})"),
+                          yaxis=dict(title="Mean ROI intensity"))
+
         return fig
 
     def correct(self, offset=None, gain=None):
