@@ -97,7 +97,7 @@ class BaseRoiIntensity(object):
         if len(module) != 1:
             return
 
-        run = run.select([(module[0], "image.data")])# Debug .select_trains(by_index[100:1000])
+        run = run.select([(module[0], "image.data")])# Debug .select_trains(by_index[100:200])
 
         pulse_ids = ":" if pulse_ids is None else pulse_ids
         self.pulses = parse_ids(pulse_ids)

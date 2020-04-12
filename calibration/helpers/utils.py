@@ -25,6 +25,15 @@ def timeit(original):
     return wrapper
 
 
+def timeit_class(decorator):
+    def decorate(cls):
+        for attr in cls.__dict__:
+            if callable(getattr(cls, attr)):
+                setattr(cls, attr, decorator(getattr(cls, attr)))
+        return cls
+    return decorate
+
+
 def pulse_filter(pulse_ids, data_counts):
 
     pulse_ids_intrain = parse_ids(pulse_ids)
