@@ -5,6 +5,7 @@ Author: Ebad Kamil <ebad.kamil@xfel.eu>
 Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
 All rights reserved.
 """
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
@@ -15,6 +16,9 @@ class IterativeHistogram(object):
     Stores and evaluate histogram of data iteratively.   
     """
     def __init__(self, pixel_hist=False):
+        """Attribute
+        _pixel_hist: bool (True: if pixel wise histogram to be evaluated)
+        """
         self._pixel_hist = pixel_hist
         self._histogram = None
         self._bin_edges = None
@@ -28,12 +32,16 @@ class IterativeHistogram(object):
         if data is None:
             return
 
+        if not isinstance(data, tuple):
+            raise AttributeError(
+                "Attribute must be a tuple. (bin_edges, image)")
+
         bin_edges, image = data
         self._bin_edges = bin_edges
 
         if len(image.shape) not in [2, 3]:
             raise AttributeError(
-                f"Atrribute must be 2 or 3 dimensional. Got {image.shape}")
+                f"Image must be 2 or 3 dimensional. Got {image.shape}")
 
         if len(image.shape) == 2:
             # Treat all data as 3 dimensional. First dim be memory cells
@@ -104,3 +112,36 @@ class IterativeHistogram(object):
     @pixel_hist.setter
     def pixel_hist(self, val):
         self._pixel_hist = val
+
+
+class MovingAverage(object):
+    """Moving average data descriptor"""
+    def __init__(self, window=1):
+        self._window = window
+        self._ma_data = None
+        self._counts = 0
+        self._data_queue = deque()
+
+    def __get__(self, instance, cls):
+        if instance is None:
+            return self
+
+        return self._ma_data
+
+    def __set__(self, instance, data):
+        if data is None:
+            return
+
+        if all([self._ma_data is not None, 
+                self._window > 1,
+                self._counts <= self._window, 
+                data.shape == self._ma_data.shape]):
+            if self._count < self._window:
+                self._count += 1
+                self._data = 
+            else:
+                self._data = 
+
+        else:
+            self._data = data
+            self._count = 1
