@@ -13,6 +13,4 @@ __all__ = [
     "module_roi_intensity",
     "ModuleRoiIntensity",
     "GainAdjustedRoiIntensity",
-    "IterativeHistogram",
-    "MovingAverage"
     ]

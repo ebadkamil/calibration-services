@@ -118,7 +118,7 @@ class MovingAverage(object):
     """Moving average data descriptor"""
     def __init__(self, window=1):
         self._window = window
-        self._ma_data = None
+        self._ma_data = 0
         self._data_queue = deque()
 
     def __get__(self, instance, cls):
@@ -130,21 +130,13 @@ class MovingAverage(object):
         if data is None:
             return
 
-        if all([self._ma_data is not None, 
-                self._window > 1,
-                # data.shape == self._ma_data.shape
-                ]):
-            self._data_queue.append(data)
-            self._ma_data += data
-            if len(self._data_queue) > self._window:
-                self._ma_data -= self._data_queue.popleft()
-
-        else:
-            self._data_queue.append(data)
-            self._ma_data = data
+        self._data_queue.append(data)
+        self._ma_data += data
+        if len(self._data_queue) > self._window:
+            self._ma_data -= self._data_queue.popleft()
 
     def __delete__(self, instance):
-        self._ma_data = None
+        self._ma_data = 0
         self._data_queue.clear()
 
     @property
