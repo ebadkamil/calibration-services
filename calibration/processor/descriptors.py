@@ -119,14 +119,12 @@ class MovingAverage(object):
     def __init__(self, window=1):
         self._window = window
         self._ma_data = None
-        self._counts = 0
         self._data_queue = deque()
 
     def __get__(self, instance, cls):
         if instance is None:
             return self
-
-        return self._ma_data
+        return self._ma_data / (len(self._data_queue) or 1)
 
     def __set__(self, instance, data):
         if data is None:
@@ -134,14 +132,26 @@ class MovingAverage(object):
 
         if all([self._ma_data is not None, 
                 self._window > 1,
-                self._counts <= self._window, 
-                data.shape == self._ma_data.shape]):
-            if self._count < self._window:
-                self._count += 1
-                self._data = 
-            else:
-                self._data = 
+                # data.shape == self._ma_data.shape
+                ]):
+            self._data_queue.append(data)
+            self._ma_data += data
+            if len(self._data_queue) > self._window:
+                self._ma_data -= self._data_queue.popleft()
 
         else:
-            self._data = data
-            self._count = 1
+            self._data_queue.append(data)
+            self._ma_data = data
+
+    def __delete__(self, instance):
+        self._ma_data = None
+        self._data_queue.clear()
+
+    @property
+    def window(self):
+        return self._window
+
+    @window.setter
+    def window(self, window):
+        self._window = window
+
