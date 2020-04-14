@@ -17,6 +17,7 @@ import xarray as xr
 
 from karabo_data import DataCollection, by_index, H5File
 
+from .descriptors import MovingAverage
 from ..helpers import pulse_filter, parse_ids, find_proposal, timeit
 
 
@@ -33,10 +34,14 @@ class BaseRoiIntensity(object):
     run: str, int
         A run number such as 243, '243' or 'r0243'.
     dettype: (str) AGIPD, LPD
+    window: (int) Moving average window size
     roi_intensity: xarray
         Labelled xarray dims = ("trainId, rois, mem_cells")
-        Shape of numpy array: (n_trains, n_rois, n_pulses)"""
-    def __init__(self, modno, proposal, run, dettype):
+        Shape of numpy array: (n_trains, n_rois, n_pulses)
+    roi_intensity_ma: xarray Moving averaged roi_intensity over trains"""
+
+    _intensity_ma = MovingAverage()
+    def __init__(self, modno, proposal, run, dettype, window=1):
 
         if not isinstance(modno, int):
             modno = int(modno)
@@ -47,8 +52,10 @@ class BaseRoiIntensity(object):
         self.run_path = find_proposal(proposal, run)
         self.dettype = dettype
 
+        self.__class__._intensity_ma.window = window
         self.rois = None
         self.roi_intensity = None
+        self.roi_intensity_ma = None
 
     def __call__(self, **kwargs):
         """kwargs should be a subset of kwargs in 
@@ -97,7 +104,7 @@ class BaseRoiIntensity(object):
         if len(module) != 1:
             return
 
-        run = run.select([(module[0], "image.data")])# Debug .select_trains(by_index[100:200])
+        run = run.select([(module[0], "image.data")])# .select_trains(by_index[100:200])
 
         pulse_ids = ":" if pulse_ids is None else pulse_ids
         self.pulses = parse_ids(pulse_ids)
@@ -105,6 +112,7 @@ class BaseRoiIntensity(object):
 
         intensities = []
         train_ids = []
+        intensities_ma = []
         for tid, data in run.trains():
             if self.dettype == 'LPD':
                 image = np.squeeze(
@@ -133,8 +141,11 @@ class BaseRoiIntensity(object):
 
             self.correct(offset=dark_run, gain=gain)
 
-            intensities.append(
-                np.stack([np.mean(img, axis=(-1, -2)) for img in self.roi_images]))
+            intensity = np.stack(
+                [np.mean(img, axis=(-1, -2)) for img in self.roi_images])
+            self._intensity_ma = intensity
+            intensities.append(intensity)
+            intensities_ma.append(self._intensity_ma)
             train_ids.append(tid)
 
         if intensities:
@@ -144,6 +155,8 @@ class BaseRoiIntensity(object):
                 data=np.stack(intensities), dims=dims, coords=coords)
 
             self.roi_intensity = data
+            self.roi_intensity_ma = xr.DataArray(
+                data=np.stack(intensities_ma), dims=dims, coords=coords)
 
             if use_normalizer is not None:
                 self.normalize(use_normalizer)
