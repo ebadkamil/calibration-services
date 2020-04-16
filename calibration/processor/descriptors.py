@@ -28,6 +28,10 @@ class IterativeHistogram(object):
             return self
         return (self._bin_edges, self._histogram)
 
+    def __delete__(self, instance):
+        self._bin_edges = None
+        self._histogram = None
+
     def __set__(self, instance, data):
         if data is None:
             return
@@ -146,4 +150,3 @@ class MovingAverage(object):
     @window.setter
     def window(self, window):
         self._window = window
-

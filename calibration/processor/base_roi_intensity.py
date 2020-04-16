@@ -38,9 +38,10 @@ class BaseRoiIntensity(object):
     roi_intensity: xarray
         Labelled xarray dims = ("trainId, rois, mem_cells")
         Shape of numpy array: (n_trains, n_rois, n_pulses)
-    roi_intensity_ma: xarray Moving averaged roi_intensity over trains"""
-
+    roi_intensity_ma: xarray 
+        Moving averaged roi_intensity over trains"""
     _intensity_ma = MovingAverage()
+
     def __init__(self, modno, proposal, run, dettype, window=1):
 
         if not isinstance(modno, int):
@@ -173,6 +174,9 @@ class BaseRoiIntensity(object):
         fig: plotly Figure object
             use fig.show() to render in notebooks
         """
+        if self.roi_intensity is None:
+            print("Roi intensity not available")
+            return
         files = [f for f in os.listdir(self.run_path) if f.endswith('.h5')]
         files = [os.path.join(self.run_path, f)
                  for f in fnmatch.filter(files, '*DA*')]

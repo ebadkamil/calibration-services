@@ -19,6 +19,7 @@ import numpy as np
 from iminuit import Minuit
 from karabo_data import DataCollection, by_index, H5File
 
+from .descriptors import IterativeHistogram
 from .fit_functions import least_squares_np
 from ..helpers import pulse_filter, parse_ids, find_proposal
 
@@ -33,6 +34,8 @@ class EvalHistogram:
     dettype: (str) AGIPD, LPD
     pixel_hist: (bool) optional
         Default: False. For pixel wise histogram set it to True"""
+
+    _iterative_histogram = IterativeHistogram()
     def __init__(self, modno, path, dettype, pixel_hist=False):
         """Initialization"""
         self.histograms = None
@@ -44,6 +47,7 @@ class EvalHistogram:
         self.path = path
         self.pixel_hist = pixel_hist
         self.dettype = dettype
+        self.__class__._iterative_histogram.pixel_hist = pixel_hist
         assert self.dettype in ["AGIPD", "LPD"]
 
     def process(self, bin_edges, pulse_ids=None, workers=None, dark_run=None):
@@ -65,6 +69,9 @@ class EvalHistogram:
                 Default: None,
                 If provided dark data will be subtracted from images
         """
+        # to make sure atrributes of _iterative_histogram are reset
+        del self._iterative_histogram
+
         self.bin_edges = bin_edges
         self.dark_run = dark_run
         pulse_ids = ":" if pulse_ids is None else pulse_ids
@@ -107,7 +114,6 @@ class EvalHistogram:
         if len(module) != 1:
             return
 
-        histogram = 0
         mean_image = 0
         train_counts = 0
 
@@ -135,63 +141,12 @@ class EvalHistogram:
 
             mean_image += image
             train_counts += 1
-
-            if not self.pixel_hist:
-                """Evaluate histogram over entire module"""
-                counts_pr = []
-                def _eval_stat(pulse):
-                    counts, _ = np.histogram(
-                        image[pulse, ...].ravel(), bins=self.bin_edges)
-                    return counts
-
-                with ThreadPoolExecutor(max_workers=5) as executor:
-                    for ret in executor.map(_eval_stat, range(image.shape[0])):
-                        counts_pr.append(ret)
-                histogram += np.stack(counts_pr)
-
-            else:
-                """Evaluate histogram over each pixel"""
-                def multihist(chunk, data, bin_edges, ret):
-                    start, end = chunk
-                    temp = data[:, start:end, :]
-                    bin_ix = np.searchsorted(bin_edges[1:], temp)
-
-                    X, Y, Z = temp.shape
-                    xgrid, ygrid, zgrid = np.meshgrid(
-                        np.arange(X),
-                        np.arange(Y),
-                        np.arange(Z),
-                        indexing='ij')
-
-                    counts = np.zeros((X, Y, Z, len(bin_edges)), dtype=np.uint32)
-
-                    np.add.at(counts, (xgrid, ygrid, zgrid, bin_ix), 1)
-                    ret[:, start:end, :, :] = counts[..., :-1]
-
-                counts = np.zeros(
-                    (len(self.pulses),
-                    512,
-                    128,
-                    len(self.bin_edges)-1),
-                    dtype=np.uint32)
-
-                start = 0
-                chunk_size = 32
-                chunks = []
-
-                while start < counts.shape[1]:
-                    chunks.append(
-                        (start, min(start + chunk_size, counts.shape[1])))
-                    start += chunk_size
-
-                with ThreadPoolExecutor(max_workers=16) as executor:
-                    for chunk in chunks:
-                        executor.submit(
-                            multihist, chunk, image, self.bin_edges, counts)
-
-                histogram += counts
+            # set _iterative_histogram
+            self._iterative_histogram = self.bin_edges, image
 
         if train_counts != 0:
+            # get _iterative histogram
+            _, histogram = self._iterative_histogram
             print("Total ", histogram.shape)
             return mean_image / train_counts, histogram
         else:
