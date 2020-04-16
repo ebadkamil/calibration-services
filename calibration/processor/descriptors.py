@@ -120,6 +120,9 @@ class IterativeHistogram(object):
 
 class MovingAverage(object):
     """Moving average data descriptor"""
+    def __set_name__(self, owner, name):
+        self.name = name
+
     def __init__(self, window=1):
         self._window = window
         self._ma_data = 0
@@ -128,7 +131,12 @@ class MovingAverage(object):
     def __get__(self, instance, cls):
         if instance is None:
             return self
-        return self._ma_data / (len(self._data_queue) or 1)
+        try:
+            data = instance.__dict__.get(
+                self.name) / (len(self._data_queue) or 1)
+            return data
+        except TypeError:
+            return
 
     def __set__(self, instance, data):
         if data is None:
@@ -138,6 +146,7 @@ class MovingAverage(object):
         self._ma_data += data
         if len(self._data_queue) > self._window:
             self._ma_data -= self._data_queue.popleft()
+        instance.__dict__[self.name] = self._ma_data
 
     def __delete__(self, instance):
         self._ma_data = 0
