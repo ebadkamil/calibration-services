@@ -88,6 +88,9 @@ class BaseRoiIntensity(object):
         use_normalizer: tuple
             (source_name, property)
         """
+
+        # Reset moving average just in case if called twice for same instance
+        del self._intensity_ma
         pattern = f"(.+){self.dettype}{self.modno:02d}(.+)"
 
         files = [os.path.join(self.run_path, f) 
@@ -144,8 +147,12 @@ class BaseRoiIntensity(object):
 
             intensity = np.stack(
                 [np.mean(img, axis=(-1, -2)) for img in self.roi_images])
+
+            # set _intensity_ma
             self._intensity_ma = intensity
+
             intensities.append(intensity)
+            #get _intensity_ma and append to intensitie_ma
             intensities_ma.append(self._intensity_ma)
             train_ids.append(tid)
 
