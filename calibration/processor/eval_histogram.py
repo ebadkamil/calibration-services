@@ -132,6 +132,9 @@ class EvalHistogram:
 
             if self.dark_run is not None:
                 dark_data = self.dark_run
+                if self.pulses != [-1]:
+                    dark_data = dark_data[self.pulses, ...]
+
                 if image.shape == dark_data.shape:
                     image -= dark_data
                 else:
