@@ -12,3 +12,10 @@ Activate conda environment:
     conda activate {env_name}
     conda install -c conda-forge openmpi 
     pip install -e .
+
+On Maxwell cluster:
+
+	module load exfel calibration-services
+
+Jupyter kernel `calibration-services-kernel` will be created that can 
+be used in jupyter notebooks.

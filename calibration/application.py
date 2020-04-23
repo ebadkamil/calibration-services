@@ -77,27 +77,34 @@ def detector_characterize():
     run_path = find_proposal(proposal, run)
     bin_edges = np.linspace(low, high, nbins)
 
+    print('-' * 30)
+    print('{:<20s}{:>4s}'.format("Argument", "Value"))
+    print('-' * 30)
+    for arg, value  in vars(args).items():
+        print('{:<20s}{:>4s}'.format(arg, str(value)))
+
     t0 = time.perf_counter()
     e = EvalHistogram(
         module, run_path, detector, pixel_hist=pixel_hist)
-    e.process(bin_edges, workers=5, pulse_ids=pulse_ids, dark_run=dark_data)
+    _ = e.process(
+        bin_edges, workers=5, pulse_ids=pulse_ids, dark_run=dark_data)
     e.hist_to_file(counts_file)
     print(f"Time taken for histogram Eval.: {time.perf_counter()-t0}")
 
     # Fixed initial parameters
     # TODO: Make it configurable
-    t0 = time.perf_counter()
     if fit:
+        t0 = time.perf_counter()
         fit_file = os.path.join(os.getcwd(), f"fit_params_{module}.h5")
         params = [100, 70, 50, 10, 10, 10, -25, 25, 70]
         bounds_minuit = [(0, None), (0, None), (0, None),
                          (0, None), (0, None), (0, None),
                          (-50, 0), (0, 50), (40, 100)]
 
-        e.fit_histogram(params, bounds_minuit)
+        _ = e.fit_histogram(params, bounds_minuit)
         e.fit_params_to_file(fit_file)
 
-    print(f"Time taken for Fitting: {time.perf_counter()-t0}")
+        print(f"Time taken for Fitting: {time.perf_counter()-t0}")
 
 
 def run_dashservice():

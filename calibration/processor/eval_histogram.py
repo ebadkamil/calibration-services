@@ -101,6 +101,7 @@ class EvalHistogram:
         if images and histograms:
             self.mean_image = np.mean(np.stack(images), axis=0)
             self.histograms = sum(histograms)
+            return self.mean_image, self.histograms
 
     def _eval(self, seq_file):
         """Histogram over all or individual pixels"""
@@ -206,6 +207,7 @@ class EvalHistogram:
         self.fit_params = np.array(
             list(ret)).reshape(
             histogram.shape[:-1]+(2*len(self.init_params)+1,))
+        return self.fit_params
 
     def _fitting(self, idx, bin_centers, histogram):
         least_sq = partial(

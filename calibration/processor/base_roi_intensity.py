@@ -61,8 +61,8 @@ class BaseRoiIntensity(object):
     def __call__(self, **kwargs):
         """kwargs should be a subset of kwargs in 
            method :eval_module_roi_intensity:"""
-        self.eval_module_roi_intensity(**kwargs)
-        return self.roi_intensity
+        roi_intensity_ma = self.eval_module_roi_intensity(**kwargs)
+        return roi_intensity_ma
 
     def eval_module_roi_intensity(
         self, rois=None, pulse_ids=None,
@@ -168,6 +168,7 @@ class BaseRoiIntensity(object):
 
             if use_normalizer is not None:
                 self.normalize(use_normalizer)
+            return self.roi_intensity_ma
 
     def plot_scan(self, src, prop):
         """Plot roi_intensity wrt to scan variable.

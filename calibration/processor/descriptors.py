@@ -12,8 +12,8 @@ import numpy as np
 
 class IterativeHistogram(object):
     """Iterative Histogram descriptor.
-    
-    Stores and evaluate histogram of data iteratively.   
+
+    Stores and evaluate histogram of data iteratively.
     """
     def __init__(self, pixel_hist=False):
         """Attribute

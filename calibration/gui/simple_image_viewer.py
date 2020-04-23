@@ -243,11 +243,11 @@ class SimpleImageViewer:
             stacked_data = stack_detector_data(train_data, "image.data")
         except (ValueError, IndexError, KeyError) as e:
             print(e)
-            return
+            return None, None
 
         if stacked_data.shape[0] == 0:
             print("Number of pulses for train are 0")
-            return
+            return None, None
 
         assembled, centre = self.geom.position_all_modules(
             stacked_data)
