@@ -51,7 +51,7 @@ class ImageAssembler(object):
             self._quad_prositions = quad_prositions
             self.geom = None
 
-        def _get_modules_data(train_data, dark_data=None):
+        def _get_modules_data(train_data, dark_data={}):
             """stack modules data together from train_dictionary
 
             train_data: A nested dictionary returned from extra_data
@@ -70,7 +70,7 @@ class ImageAssembler(object):
             """Create extra-geom geometry object"""
             pass
 
-        def assemble_image(self, train_data, dark_data=None):
+        def assemble_image(self, train_data, dark_data={}):
             modules_data = self._get_modules_data(
                 train_data, dark_data=dark_data)
             if modules_data is None:
@@ -104,17 +104,19 @@ class ImageAssembler(object):
                         (520, -160),
                         (542.5, 475), ])
 
-        def _get_modules_data(self, train_data, dark_data=None):
+        def _get_modules_data(self, train_data, dark_data={}):
 
-            def _corrections(source, train_data=train_data):
+            def _corrections(source):
                 pattern = "(.+)/DET/(.+)CH0:xtdf"
                 modno = int((re.match(pattern, source)).group(2).strip())
-
-                image = train_data[source]["image.data"][:, 0, ...]
+                try:
+                    image = train_data[source]["image.data"][:, 0, ...]
+                except KeyError:
+                    retun
 
                 image = image.astype(np.float32)
 
-                if dark_data is not None and image.shape[0] != 0:
+                if dark_data and image.shape[0] != 0:
                     image -= dark_data[str(modno)][0:image.shape[0], ...]
 
                 train_data[source]["image.data"] = image
@@ -123,13 +125,15 @@ class ImageAssembler(object):
                     max_workers=len(train_data.keys())) as executor:
                 for source in train_data.keys():
                     executor.submit(_corrections, source)
-            # assemble image
+            # stack detector data
             try:
                 stacked_data = stack_detector_data(train_data, "image.data")
             except (ValueError, IndexError, KeyError) as e:
                 print(e)
                 return
-            return stacked_data
+
+            if stacked_data.shape[0] != 0:
+                return stacked_data
 
     class LpdAssembler(BaseAssembler):
         def __init__(self, *args, **kwargs):
@@ -152,29 +156,29 @@ class ImageAssembler(object):
                         [278.5, 275]],)
 
         def _get_modules_data(self, train_data, dark_data=None):
-
-            def _corrections(source, train_data=train_data):
+            def _corrections(source):
                 pattern = "(.+)/DET/(.+)CH0:xtdf"
                 modno = int((re.match(pattern, source)).group(2).strip())
-
-                image = np.squeeze(
-                    train_data[source]["image.data"], axis=1)
-
+                try:
+                    image = train_data[source]["image.data"].squeeze(axis=1)
+                except KeyError:
+                    return
                 image = image.astype(np.float32)
 
-                if dark_data is not None and image.shape[0] != 0:
+                if dark_data and image.shape[0] != 0:
                     image -= dark_data[str(modno)][0:image.shape[0], ...]
-
                 train_data[source]["image.data"] = image
 
             with ThreadPoolExecutor(
                     max_workers=len(train_data.keys())) as executor:
                 for source in train_data.keys():
                     executor.submit(_corrections, source)
-            # assemble image
+            # stack detector data
             try:
                 stacked_data = stack_detector_data(train_data, "image.data")
             except (ValueError, IndexError, KeyError) as e:
                 print(e)
                 return
-            return stacked_data
+
+            if stacked_data.shape[0] != 0:
+                return stacked_data

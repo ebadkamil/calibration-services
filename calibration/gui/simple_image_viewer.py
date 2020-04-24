@@ -22,6 +22,7 @@ from karabo_data.geometry2 import AGIPD_1MGeometry, LPD_1MGeometry
 
 from .logger import out
 from ..helpers import timeit
+from ..processor import ImageAssembler
 
 
 class SimpleImageViewer:
@@ -33,20 +34,8 @@ class SimpleImageViewer:
 
         self.dettype = dettype
         assert self.dettype in ["AGIPD", "LPD"]
-        if self.dettype == 'AGIPD':
-            self.geom = AGIPD_1MGeometry.from_quad_positions(
-                quad_pos=[
-                    (-525, 625),
-                    (-550, -10),
-                    (520, -160),
-                    (542.5, 475), ])
-        else:
-            self.geom = LPD_1MGeometry.from_quad_positions(
-                quad_pos=[
-                    [11.4, 299],
-                    [-11.5, 8],
-                    [254.5, -16],
-                    [278.5, 275]],)
+
+        self.image_assembler = ImageAssembler.for_detector(self.dettype)
 
         self.dark_data = {}
         self.assembled = None
@@ -205,7 +194,8 @@ class SimpleImageViewer:
                 print(ex)
                 print("Dark offset was not applied")
 
-        self.assembled, _ = self._assemble_image(self._train_ids.value)
+        self.assembled = self._assemble_image(self._train_ids.value)
+
         if self.assembled is not None:
             self.onVisulizationParamChange(0)
         else:
@@ -215,43 +205,13 @@ class SimpleImageViewer:
     @out.capture()
     def _assemble_image(self, tid):
         if self.run is None:
-            return 
+            return
 
         train_id, train_data = self.run.train_from_index(tid)
 
-        def _corrections(source, train_data=train_data):
-            pattern = "(.+)/DET/(.+)CH0:xtdf"
-            modno = int((re.match(pattern, source)).group(2).strip())
-            if self.dettype == "AGIPD":
-                image = train_data[source]["image.data"][:, 0, ...]
-            else:
-                image = np.squeeze(
-                    train_data[source]["image.data"], axis=1)
-            image = image.astype(np.float32)
-
-            if self.dark_data and image.shape[0] != 0:
-                image -= self.dark_data[str(modno)][0:image.shape[0], ...]
-
-            train_data[source]["image.data"] = image
-
-        with ThreadPoolExecutor(
-                max_workers=len(train_data.keys())) as executor:
-            for source in train_data.keys():
-                executor.submit(_corrections, source)
-        # assemble image
-        try:
-            stacked_data = stack_detector_data(train_data, "image.data")
-        except (ValueError, IndexError, KeyError) as e:
-            print(e)
-            return None, None
-
-        if stacked_data.shape[0] == 0:
-            print("Number of pulses for train are 0")
-            return None, None
-
-        assembled, centre = self.geom.position_all_modules(
-            stacked_data)
-        return assembled, centre
+        assembled = self.image_assembler.assemble_image(
+            train_data, dark_data=self.dark_data)
+        return assembled
 
     @out.capture()
     def onVisulizationParamChange(self, value):
@@ -286,13 +246,13 @@ class SimpleImageViewer:
     def onTrainIdChange(self, value):
         self.widgetsOnParamsChange()
         self.assembled = None
-        
+
         if value['new'] > len(self.run.train_ids) - 1:
             self.widgetsOnParamsChanged()
             print("Train Index out of range")
             return
 
-        self.assembled, _ = self._assemble_image(self._train_ids.value)
+        self.assembled = self._assemble_image(self._train_ids.value)
         if self.assembled is None:
             self.widgetsOnParamsChanged()
             return
