@@ -12,17 +12,18 @@ import os.path as osp
 import psutil as ps
 
 
-def timeit(original):
-    import time
-
-    @wraps(original)
-    def wrapper(*args, **kwargs):
-        t0 = time.perf_counter()
-        result = original(*args, **kwargs)
-        print(f"Time to evaluate {original.__name__} with args {args}"
-              f" : {time.perf_counter() - t0} secs")
-        return result
-    return wrapper
+def timeit(name):
+    def profile(original):
+        import time
+        @wraps(original)
+        def wrapper(*args, **kwargs):
+            t0 = time.perf_counter()
+            result = original(*args, **kwargs)
+            print(f"Time to evaluate {name} "
+                  f" : {time.perf_counter() - t0} secs")
+            return result
+        return wrapper
+    return profile
 
 
 def timeit_class(decorator):
