@@ -38,17 +38,36 @@ class ImageAssembler(object):
         else:
             raise NotImplementedError("Detector assembler not implemented")
 
-
     class BaseAssembler(object):
+        """BaseAssembler class"""
         def __init__(self, geom_file=None, quad_prositions=None):
-            self.geom_file = geom_file
-            self.quad_prositions = quad_prositions
+            """
+            Attributes
+            ----------
+            _geom_file: (str) path to geometry file
+            _quad_positions: (list) list of quadrant positions
+            """
+            self._geom_file = geom_file
+            self._quad_prositions = quad_prositions
             self.geom = None
 
         def _get_modules_data(train_data, dark_data=None):
+            """stack modules data together from train_dictionary
+
+            train_data: A nested dictionary returned from extra_data
+                        :method: train_from_id, train_from_index etc
+            dark_data: dict
+                dark_data[module_number] is an ndarray
+                if provided: then this data should be subtracted from
+                    image data for the corresponding module
+
+            return:
+                stacked data: (pulses, modules, px, py)
+            """
             raise NotImplementedError
 
         def get_geom_object(self):
+            """Create extra-geom geometry object"""
             pass
 
         def assemble_image(self, train_data, dark_data=None):
@@ -71,10 +90,10 @@ class ImageAssembler(object):
             super().__init__(*args, **kwargs)
 
         def get_geom_object(self):
-            if self.geom_file is not None:
+            if self._geom_file is not None:
                 try:
                     self.geom = AGIPD_1MGeometry.from_crystfel_geom(
-                        self.geom_file)
+                        self._geom_file)
                 except Exception as ex:
                     print(ex)
             else:
@@ -117,10 +136,11 @@ class ImageAssembler(object):
             super().__init__(*args, **kwargs)
 
         def get_geom_object(self):
-            if self.geom_file is not None and self.quad_prositions is not None:
+            if all([self._geom_file is not None,
+                    self._quad_prositions is not None]):
                 try:
                     self.geom = LPD_1MGeometry.from_h5_file_and_quad_positions(
-                        self.geom_file, self.quad_prositions)
+                        self._geom_file, self._quad_prositions)
                 except Exception as ex:
                     print(ex)
             else:
