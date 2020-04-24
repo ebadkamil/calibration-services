@@ -110,11 +110,14 @@ class ImageAssembler(object):
                 pattern = "(.+)/DET/(.+)CH0:xtdf"
                 modno = int((re.match(pattern, source)).group(2).strip())
                 try:
-                    image = train_data[source]["image.data"][:, 0, ...]
+                    image = train_data[source]["image.data"]
                 except KeyError:
                     retun
 
-                image = image.astype(np.float32)
+                if image.dtype == np.uint16:
+                    # Raw image
+                    image = image[:, 0, ...]
+                    image = image.astype(np.float32)
 
                 if dark_data and image.shape[0] != 0:
                     image -= dark_data[str(modno)][0:image.shape[0], ...]
@@ -160,10 +163,14 @@ class ImageAssembler(object):
                 pattern = "(.+)/DET/(.+)CH0:xtdf"
                 modno = int((re.match(pattern, source)).group(2).strip())
                 try:
-                    image = train_data[source]["image.data"].squeeze(axis=1)
+                    image = train_data[source]["image.data"]
                 except KeyError:
                     return
-                image = image.astype(np.float32)
+
+                if image.dtype == np.uint16:
+                    # Raw image
+                    image = image.squeeze(axis=1)
+                    image = image.astype(np.float32)
 
                 if dark_data and image.shape[0] != 0:
                     image -= dark_data[str(modno)][0:image.shape[0], ...]
