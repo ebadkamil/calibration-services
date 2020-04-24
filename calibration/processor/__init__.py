@@ -1,4 +1,6 @@
-from .data_processing import DataProcessing, DataModel, eval_statistics, gauss_fit
+from .assembler import ImageAssembler
+from .data_processing import (DataProcessing, DataModel,
+    eval_statistics, gauss_fit)
 from .eval_histogram import EvalHistogram
 from .operations import dark_offset, module_roi_intensity
 from .roi_intensity import GainAdjustedRoiIntensity, ModuleRoiIntensity
@@ -13,4 +15,5 @@ __all__ = [
     "module_roi_intensity",
     "ModuleRoiIntensity",
     "GainAdjustedRoiIntensity",
+    "ImageAssembler"
     ]

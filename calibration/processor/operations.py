@@ -23,7 +23,7 @@ from karabo_data import DataCollection, by_index, H5File
 from ..helpers import pulse_filter, parse_ids, find_proposal, timeit
 
 
-@timeit
+@timeit("Dark Offset")
 def dark_offset(proposal, run, module_number, *,
                 pulse_ids=None, dettype='AGIPD', eval_std=False):
     """ Process Dark data
@@ -117,7 +117,7 @@ def dark_offset(proposal, run, module_number, *,
             return mean_image, np.sqrt(std / train_counts)
         return mean_image
 
-@timeit
+@timeit("Module ROI instensity")
 def module_roi_intensity(module_number, proposal, run, *,
                          pulse_ids=None, rois=None,
                          dettype='AGIPD', dark_run=None,
@@ -209,10 +209,10 @@ def module_roi_intensity(module_number, proposal, run, *,
 
         if pulses != [-1]:
             roi_images = [
-                img[pulses, ...].astype(np.float32) for img in roi_images] 
+                img[pulses, ...].astype(np.float32) for img in roi_images]
         else:
-            roi_images = [ 
-                img.astype(np.float32) for img in roi_images] 
+            roi_images = [
+                img.astype(np.float32) for img in roi_images]
 
         if dark_run is not None:
             if not isinstance(dark_run, np.ndarray): # passed as a dict
@@ -238,7 +238,7 @@ def module_roi_intensity(module_number, proposal, run, *,
                 lambda x, y: x.shape == y.shape, roi_images, dark_roi_images)):
                 raise ValueError("Shapes of image and dark data don't match")
 
-            roi_images = [ 
+            roi_images = [
                 roi_images[i] - dark_roi_images[i]
                 for i in range(len(roi_images))]
 
