@@ -19,6 +19,26 @@ from ..helpers import timeit
 class ImageAssembler(object):
     """ImageAssembler Class"""
 
+    @classmethod
+    def for_detector(cls, detector, geom_file=None, quad_prositions=None):
+        """
+        detector: (str) for eg. LPD, AGIPD
+        geom_file: (str) path to geometry file
+        quad_positions: (list) quadrant positions"""
+        detector = detector.upper()
+
+        if detector == "LPD":
+            return cls.LpdAssembler(
+                geom_file=geom_file, quad_prositions=quad_prositions)
+
+        elif detector == "AGIPD":
+            return cls.AgipdAssembler(
+                geom_file=geom_file, quad_prositions=quad_prositions)
+
+        else:
+            raise NotImplementedError("Detector assembler not implemented")
+
+
     class BaseAssembler(object):
         def __init__(self, geom_file=None, quad_prositions=None):
             self.geom_file = geom_file
@@ -40,7 +60,7 @@ class ImageAssembler(object):
             self.get_geom_object()
 
             if self.geom is not None:
-                assembled, center = self.geom.position_all_modules(modules_data)
+                assembled, _ = self.geom.position_all_modules(modules_data)
             else:
                 assembled = modules_data
 
@@ -92,17 +112,49 @@ class ImageAssembler(object):
                 return
             return stacked_data
 
-    @classmethod
-    def for_detector(cls, detector, geom_file=None, quad_prositions=None):
-        detector = detector.upper()
+    class LpdAssembler(BaseAssembler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
 
-        if detector == "LPD":
-            return cls.LpdAssembler(
-                geom_file=geom_file, quad_prositions=quad_prositions)
+        def get_geom_object(self):
+            if self.geom_file is not None and self.quad_prositions is not None:
+                try:
+                    self.geom = LPD_1MGeometry.from_h5_file_and_quad_positions(
+                        self.geom_file, self.quad_prositions)
+                except Exception as ex:
+                    print(ex)
+            else:
+                self.geom = LPD_1MGeometry.from_quad_positions(
+                    quad_pos=[
+                        [11.4, 299],
+                        [-11.5, 8],
+                        [254.5, -16],
+                        [278.5, 275]],)
 
-        elif detector == "AGIPD":
-            return cls.AgipdAssembler(
-                geom_file=geom_file, quad_prositions=quad_prositions)
+        def _get_modules_data(self, train_data, dark_data=None):
 
-        else:
-            raise NotImplementedError("Detector assembler not implemented")
+            def _corrections(source, train_data=train_data):
+                pattern = "(.+)/DET/(.+)CH0:xtdf"
+                modno = int((re.match(pattern, source)).group(2).strip())
+
+                image = np.squeeze(
+                    train_data[source]["image.data"], axis=1)
+
+                image = image.astype(np.float32)
+
+                if dark_data is not None and image.shape[0] != 0:
+                    image -= dark_data[str(modno)][0:image.shape[0], ...]
+
+                train_data[source]["image.data"] = image
+
+            with ThreadPoolExecutor(
+                    max_workers=len(train_data.keys())) as executor:
+                for source in train_data.keys():
+                    executor.submit(_corrections, source)
+            # assemble image
+            try:
+                stacked_data = stack_detector_data(train_data, "image.data")
+            except (ValueError, IndexError, KeyError) as e:
+                print(e)
+                return
+            return stacked_data
