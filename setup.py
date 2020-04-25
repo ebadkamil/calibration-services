@@ -35,6 +35,7 @@ setup(name="calibration",
            'ipywidgets>=7.5.1',
            'mpi4py>=3.0.2',
            'iminuit',
+           'pyFAI>0.15.0'
       ],
       python_requires='>=3.6',
 )
