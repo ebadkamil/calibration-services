@@ -50,6 +50,7 @@ class ImageAssembler(object):
             self._geom_file = geom_file
             self._quad_prositions = quad_prositions
             self.geom = None
+            self.out_array = None
 
         def _get_modules_data(train_data, dark_data={}):
             """stack modules data together from train_dictionary
@@ -70,7 +71,7 @@ class ImageAssembler(object):
             """Create extra-geom geometry object"""
             pass
 
-        def assemble_image(self, train_data, dark_data={}):
+        def assemble_image(self, train_data, dark_data={}, use_out_arr=False):
             modules_data = self._get_modules_data(
                 train_data, dark_data=dark_data)
             if modules_data is None:
@@ -79,7 +80,16 @@ class ImageAssembler(object):
             self.get_geom_object()
 
             if self.geom is not None:
-                assembled, _ = self.geom.position_all_modules(modules_data)
+
+                if use_out_arr and self.out_array is None:
+                    image_dtype = modules_data.dtype
+                    n_images = (modules_data.shape[0], )
+
+                    self.out_array = self.geom.output_array_for_position_fast(
+                        extra_shape=n_images, dtype=image_dtype)
+
+                assembled, _ = self.geom.position_all_modules(
+                    modules_data, out=self.out_array)
             else:
                 assembled = modules_data
 
