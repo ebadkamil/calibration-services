@@ -1,4 +1,5 @@
 from .assembler import ImageAssembler
+from .azimuthal_integration import AzimuthalIntegration
 from .data_processing import (DataProcessing, DataModel,
     eval_statistics, gauss_fit)
 from .eval_histogram import EvalHistogram
@@ -15,5 +16,6 @@ __all__ = [
     "module_roi_intensity",
     "ModuleRoiIntensity",
     "GainAdjustedRoiIntensity",
-    "ImageAssembler"
+    "ImageAssembler",
+    "AzimuthalIntegration"
     ]

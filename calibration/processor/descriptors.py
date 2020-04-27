@@ -7,7 +7,10 @@ All rights reserved.
 """
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 import numpy as np
+
+from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 
 class IterativeHistogram(object):
@@ -159,3 +162,148 @@ class MovingAverage(object):
     @window.setter
     def window(self, window):
         self._window = window
+
+
+class PyFaiAzimuthalIntegrator(object):
+
+    def __init__(self):
+        self._distance = None
+        self._wavelength = None
+        self._poni1 = None
+        self._poni2 = None
+        self._intg_method = None
+        self._intg_rng = None
+        self._intg_pts = None
+        self._pixel_size = None
+
+        self._momentum = None
+        self._intensities = None
+
+        self._ai_integrator = None
+
+    def __get__(self, instance, cls):
+        if instance is None:
+            return self
+
+        return self._momentum, self._intensities
+
+    def __set__(self, instance, data):
+        # data is of shape (pulses, px, py)
+        integrator = self._update_integrator()
+        itgt1d = partial(integrator.integrate1d,
+                         method=self._intg_method,
+                         radial_range=self._intg_rng,
+                         correctSolidAngle=True,
+                         polarization_factor=1,
+                         unit="q_A^-1")
+
+        integ_points = self._intg_pts
+        def _integrate(i):
+            mask = np.zeros_like(data[i], dtype=np.uint8)
+            mask[np.isnan(data[i])] = 1
+            ret = itgt1d(data[i], integ_points, mask=mask)
+            return ret.radial, ret.intensity
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            rets = executor.map(_integrate,
+                                range(data.shape[0]))
+
+        momentums, intensities = zip(*rets)
+        self._momentum = momentums[0]
+        self._intensities = intensities
+
+    def __delete__(self, instance):
+        self._ai_integrator = None
+        self._momentum = None
+        self._intensities = None
+
+    def _update_integrator(self):
+        if self._ai_integrator is None:
+            self._ai_integrator = AzimuthalIntegrator(
+                dist=self._distance,
+                pixel1=self._pixel_size,
+                pixel2=self._pixel_size,
+                poni1=self._poni1,
+                poni2=self._poni2,
+                rot1=0,
+                rot2=0,
+                rot3=0,
+                wavelength=self._wavelength)
+        else:
+            if self._ai_integrator.dist != self._distance \
+                    or self._ai_integrator.wavelength != self._wavelength \
+                    or self._ai_integrator.poni1 != self._poni1 \
+                    or self._ai_integrator.poni2 != self._poni2:
+                self._ai_integrator.set_param(
+                    (self._distance,
+                     self._poni1,
+                     self._poni2,
+                     0,
+                     0,
+                     0,
+                     self._wavelength))
+        return self._ai_integrator
+
+    @property
+    def distance(self):
+        return self._distance
+
+    @distance.setter
+    def distance(self, val):
+        self._distance = val
+
+    @property
+    def wavelength(self):
+        return self._wavelength
+
+    @wavelength.setter
+    def wavelength(self, val):
+        self._wavelength = val
+
+    @property
+    def poni1(self):
+        return self._poni1
+
+    @poni1.setter
+    def poni1(self, val):
+        self._poni1 = val
+
+    @property
+    def poni2(self):
+        return self._poni2
+
+    @poni2.setter
+    def poni2(self, val):
+        self._poni2 = val
+
+    @property
+    def intg_method(self):
+        return self._intg_method
+
+    @intg_method.setter
+    def intg_method(self, val):
+        self._intg_method = val
+
+    @property
+    def intg_rng(self):
+        return self._intg_rng
+
+    @intg_rng.setter
+    def intg_rng(self, val):
+        self._intg_rng = val
+
+    @property
+    def intg_pts(self):
+        return self._intg_pts
+
+    @intg_pts.setter
+    def intg_pts(self, val):
+        self._intg_pts = val
+
+    @property
+    def pixel_size(self):
+        return self._pixel_size
+
+    @pixel_size.setter
+    def pixel_size(self, val):
+        self._pixel_size = val

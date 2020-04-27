@@ -13,7 +13,7 @@ import re
 from karabo_data import RunDirectory, stack_detector_data
 from karabo_data.geometry2 import AGIPD_1MGeometry, LPD_1MGeometry
 
-from ..helpers import timeit
+from ..helpers import timeit, parse_ids
 
 
 class ImageAssembler(object):
@@ -52,7 +52,7 @@ class ImageAssembler(object):
             self.geom = None
             self.out_array = None
 
-        def _get_modules_data(train_data, dark_data={}):
+        def _get_modules_data(train_data, pulses, dark_data={}):
             """stack modules data together from train_dictionary
 
             train_data: A nested dictionary returned from extra_data
@@ -71,9 +71,14 @@ class ImageAssembler(object):
             """Create extra-geom geometry object"""
             pass
 
-        def assemble_image(self, train_data, dark_data={}, use_out_arr=False):
+        def assemble_image(self, train_data,
+            pulse_ids=None, dark_data={}, use_out_arr=False):
+
+            pulse_ids = ":" if pulse_ids is None else pulse_ids
+            pulses = parse_ids(pulse_ids)
+
             modules_data = self._get_modules_data(
-                train_data, dark_data=dark_data)
+                train_data, pulses, dark_data=dark_data)
             if modules_data is None:
                 return
 
@@ -114,7 +119,7 @@ class ImageAssembler(object):
                         (520, -160),
                         (542.5, 475), ])
 
-        def _get_modules_data(self, train_data, dark_data={}):
+        def _get_modules_data(self, train_data, pulses, dark_data={}):
 
             def _corrections(source):
                 pattern = "(.+)/DET/(.+)CH0:xtdf"
@@ -122,7 +127,10 @@ class ImageAssembler(object):
                 try:
                     image = train_data[source]["image.data"]
                 except KeyError:
-                    retun
+                    return
+
+                if pulses != [-1] and image.shape[0] != 0:
+                    image = image[pulses, ...]
 
                 if image.dtype == np.uint16:
                     # Raw image
@@ -130,7 +138,11 @@ class ImageAssembler(object):
                     image = image.astype(np.float32)
 
                 if dark_data and image.shape[0] != 0:
-                    image -= dark_data[str(modno)][0:image.shape[0], ...]
+                    if pulses != [-1]:
+                        dark = dark_data[str(modno)][pulses, ...]
+                    else:
+                        dark = dark_data[str(modno)][0:image.shape[0], ...]
+                    image -= dark
 
                 train_data[source]["image.data"] = image
 
@@ -168,7 +180,7 @@ class ImageAssembler(object):
                         [254.5, -16],
                         [278.5, 275]],)
 
-        def _get_modules_data(self, train_data, dark_data=None):
+        def _get_modules_data(self, train_data, pulses, dark_data=None):
             def _corrections(source):
                 pattern = "(.+)/DET/(.+)CH0:xtdf"
                 modno = int((re.match(pattern, source)).group(2).strip())
@@ -177,19 +189,28 @@ class ImageAssembler(object):
                 except KeyError:
                     return
 
+                if pulses != [-1] and image.shape[0] != 0:
+                    image = image[pulses, ...]
+
                 if image.dtype == np.uint16:
                     # Raw image
                     image = image.squeeze(axis=1)
                     image = image.astype(np.float32)
 
                 if dark_data and image.shape[0] != 0:
-                    image -= dark_data[str(modno)][0:image.shape[0], ...]
+                    if pulses != [-1]:
+                        dark = dark_data[str(modno)][pulses, ...]
+                    else:
+                        dark = dark_data[str(modno)][0:image.shape[0], ...]
+                    image -= dark
+
                 train_data[source]["image.data"] = image
 
             with ThreadPoolExecutor(
                     max_workers=len(train_data.keys())) as executor:
                 for source in train_data.keys():
                     executor.submit(_corrections, source)
+
             # stack detector data
             try:
                 stacked_data = stack_detector_data(train_data, "image.data")
