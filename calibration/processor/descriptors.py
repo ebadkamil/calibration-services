@@ -198,7 +198,7 @@ class PyFaiAzimuthalIntegrator(object):
                          unit="q_A^-1")
 
         integ_points = self._intg_pts
-
+        print(data.shape)
         def _integrate(i):
             ret = itgt1d(data[i], integ_points)
             return ret.radial, ret.intensity
