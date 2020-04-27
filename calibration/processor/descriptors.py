@@ -199,7 +199,9 @@ class PyFaiAzimuthalIntegrator(object):
 
         integ_points = self._intg_pts
         def _integrate(i):
-            ret = itgt1d(data[i], integ_points)
+            mask = np.zeros_like(data[i], dtype=np.uint8)
+            mask[np.isnan(data[i])] = 1
+            ret = itgt1d(data[i], integ_points, mask=mask)
             return ret.radial, ret.intensity
 
         with ThreadPoolExecutor(max_workers=5) as executor:

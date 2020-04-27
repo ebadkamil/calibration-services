@@ -134,7 +134,7 @@ class ImageAssembler(object):
 
                 if image.dtype == np.uint16:
                     # Raw image
-                    image = image.squeeze(axis=1)
+                    image = image[:, 0, ...]
                     image = image.astype(np.float32)
 
                 if dark_data and image.shape[0] != 0:
