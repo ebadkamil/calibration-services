@@ -242,7 +242,7 @@ class BaseRoiIntensity(object):
         fig = go.Figure(data=data)
         fig.update_layout(updatemenus=updatemenus,
                           title=f'Module {self.modno}',
-                          xaxis=dict(title=f"Scan variable ({src}/{prop})"),
+                          xaxis=dict(title=f"Scan variable ({src}/{prop})", tickformat='d'),
                           yaxis=dict(title="Mean ROI intensity"))
 
         return fig
