@@ -19,7 +19,7 @@ from scipy.ndimage import gaussian_filter, gaussian_filter1d
 from scipy.signal import find_peaks
 from scipy.signal import savgol_filter
 
-from karabo_data import by_index
+from extra_data import by_index
 
 from .logger import out, logger
 from ..helpers import parse_le, parse_ids, pulse_filter

@@ -12,9 +12,9 @@ import re
 import numpy as np
 from scipy.optimize import curve_fit
 
-from ..helpers import pulse_filter, parse_ids
-from karabo_data import DataCollection, by_index
+from extra_data import DataCollection, by_index
 
+from ..helpers import pulse_filter, parse_ids
 
 def DataProcessing(module_number, path, *,
                    train_index=None, pulse_ids=None,
@@ -28,7 +28,7 @@ def DataProcessing(module_number, path, *,
         Channel number between 0, 15
     path: str
         Path to Run folder
-    train_index: karabo_data (by_index)
+    train_index: extra_data (by_index)
         Default (all trains by_index[:])
     pulse_ids: str
         For eg. ":" to select all pulses in a train
@@ -36,9 +36,9 @@ def DataProcessing(module_number, path, *,
                 "1,2,3" comma separated pulse index to select specific pulses
                 "1,2,3, 5:10" mix of above two
         Default: all pulses ":"
-    rois: karabo_data slice constructor by_index
+    rois: extra_data slice constructor by_index
         Select ROI of image data. For eg. by_index[..., 0:128, 0:64]
-        See karabo_data method: `get_array`
+        See extra_data method: `get_array`
 
     operation: function
         For eg. functools.partial(np.mean, axis=0) to take mean over trains

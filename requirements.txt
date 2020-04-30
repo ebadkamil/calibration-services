@@ -1,4 +1,5 @@
-karabo-data==0.7.0
+extra_data==1.1.0
+extra_geom==0.9.0
 dash==1.6.1
 dash-daq==0.3.1
 dask==2.7.0

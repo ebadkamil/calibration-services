@@ -16,7 +16,7 @@ import numpy as np
 import sys
 import time
 
-from karabo_data import DataCollection, by_index
+from extra_data import DataCollection, by_index
 
 from mpi4py import MPI
 
