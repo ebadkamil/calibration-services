@@ -18,6 +18,8 @@ import xarray as xr
 from karabo_data import DataCollection, by_index, H5File
 
 from .descriptors import MovingAverage
+
+from ..gui.plots import ScatterPlot
 from ..helpers import pulse_filter, parse_ids, find_proposal, timeit
 
 
@@ -64,6 +66,7 @@ class BaseRoiIntensity(object):
         roi_intensity_ma = self.eval_module_roi_intensity(**kwargs)
         return roi_intensity_ma
 
+    @timeit("Module ROI intensity")
     def eval_module_roi_intensity(
         self, rois=None, pulse_ids=None,
         dark_run=None, gain=None,
@@ -202,49 +205,18 @@ class BaseRoiIntensity(object):
         mean_align = align.groupby('scan_data').mean(dim=['trainId'])
         std_align = align.groupby('scan_data').std(dim=['trainId'])
 
-        shape = mean_align['roi_intensity'].shape
-        # Plotly traces
-        data = []
-        for n, pulse in enumerate(range(shape[-1])):
-            for roi in range(shape[-2]):
-                data.append(
-                    go.Scatter(
-                        x=mean_align['scan_data'],
-                        y=mean_align['roi_intensity'][:, roi, pulse],
-                        error_y=dict(
-                            type='data',
-                            array=std_align['roi_intensity'][:, roi, pulse],
-                            visible=True),
-                        visible = False,
-                        mode='lines+markers',
-                        name=f"Pulse index: {pulse}"))
-            data[n * mean_align['roi_intensity'].shape[-2]].visible = True
+        # Create ScatterPlot object
+        fig = ScatterPlot(title=f'Module {self.modno}',
+                          xlabel=f"Scan variable ({src}/{prop})",
+                          ylabel="Mean ROI intensity",
+                          legend='Pulse index',
+                          drop_down_label="ROI")
 
-        options_dd = []
-        for roi in range(self.roi_intensity.shape[-2]):
-            visible = [False] * self.roi_intensity.shape[-2]
-            visible[roi] = True
-            temp_dict = dict(label = str(f"ROI: {roi}"),
-                         method = 'update',
-                         args = [{'visible': visible}])
-            options_dd.append(temp_dict)
-
-        updatemenus = [dict(
-            buttons=options_dd,
-            direction="down",
-            showactive=True,
-            x=0.,
-            xanchor="right",
-            y=1,
-            yanchor="top")]
-
-        fig = go.Figure(data=data)
-        fig.update_layout(updatemenus=updatemenus,
-                          title=f'Module {self.modno}',
-                          xaxis=dict(title=f"Scan variable ({src}/{prop})",
-                                     tickformat='d'),
-                          yaxis=dict(title="Mean ROI intensity"))
-
+        # Set data
+        fig.setData(
+            mean_align['scan_data'],
+            mean_align['roi_intensity'],
+            yerror=std_align['roi_intensity'])
         return fig
 
     def correct(self, offset=None, gain=None):
