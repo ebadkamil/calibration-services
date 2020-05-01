@@ -35,6 +35,7 @@ class ScatterPlot(go.Figure):
         self._drop_down_label = drop_down_label
         self.update_layout(
             title=self._title,
+            title_x=0.5,
             xaxis=dict(title=self._xlabel, tickformat='d'),
             yaxis=dict(title=self._ylabel))
 
