@@ -87,5 +87,44 @@ class ScatterPlot(go.Figure):
                         visible=True)
                 traces.append(data)
 
+        else:
+            shape = ydata.shape
+            for n, index_1 in enumerate(range(shape[-1])):
+                for index_2 in range(shape[-2]):
+                    data = go.Scatter(
+                        x=xdata,
+                        y=ydata[:, index_2, index_1],
+                        visible = False,
+                        mode='lines+markers',
+                        name=f"{self._legend}: {index_1}")
+
+                    if yerror is not None:
+                        data.error_y=dict(
+                            type='data',
+                            array=yerror[:, index_2, index_1],
+                            visible=True)
+                    traces.append(data)
+                traces[n * shape[-2]].visible = True
+
+            options_dd = []
+            for index_2 in range(shape[-2]):
+                visible = [False] * shape[-2]
+                visible[index_2] = True
+                temp_dict = dict(
+                    label = str(f"{self._drop_down_label}: {index_2}"),
+                    method = 'update',
+                    args = [{'visible': visible}])
+                options_dd.append(temp_dict)
+
+            updatemenus = [dict(
+                buttons=options_dd,
+                direction="down",
+                showactive=True,
+                x=0.,
+                xanchor="right",
+                y=1,
+                yanchor="top")]
+            self.update_layout(updatemenus=updatemenus)
+
         for trace in traces:
             self.add_trace(trace)
