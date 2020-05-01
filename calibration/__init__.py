@@ -1,4 +1,4 @@
-from .gui import Display, SimpleImageViewer
+from .gui import Display, SimpleImageViewer, ScatterPlot
 from .helpers import parse_ids, pulse_filter, parse_le, find_proposal
 from .processor import (AzimuthalIntegration, DataProcessing, EvalHistogram,
 	GainAdjustedRoiIntensity, ModuleRoiIntensity, ImageAssembler)

@@ -38,7 +38,7 @@ class BaseRoiIntensity(object):
     roi_intensity: xarray
         Labelled xarray dims = ("trainId, rois, mem_cells")
         Shape of numpy array: (n_trains, n_rois, n_pulses)
-    roi_intensity_ma: xarray 
+    roi_intensity_ma: xarray
         Moving averaged roi_intensity over trains"""
     _intensity_ma = MovingAverage()
 
@@ -59,7 +59,7 @@ class BaseRoiIntensity(object):
         self.roi_intensity_ma = None
 
     def __call__(self, **kwargs):
-        """kwargs should be a subset of kwargs in 
+        """kwargs should be a subset of kwargs in
            method :eval_module_roi_intensity:"""
         roi_intensity_ma = self.eval_module_roi_intensity(**kwargs)
         return roi_intensity_ma
@@ -93,7 +93,7 @@ class BaseRoiIntensity(object):
         del self._intensity_ma
         pattern = f"(.+){self.dettype}{self.modno:02d}(.+)"
 
-        files = [os.path.join(self.run_path, f) 
+        files = [os.path.join(self.run_path, f)
                  for f in os.listdir(self.run_path)
                  if f.endswith('.h5') and re.match(pattern, f)]
 
@@ -138,10 +138,10 @@ class BaseRoiIntensity(object):
             if self.pulses != [-1]:
                 self.roi_images = [
                     img[self.pulses, ...].astype(np.float32)
-                    for img in self.roi_images] 
+                    for img in self.roi_images]
             else:
-                self.roi_images = [ 
-                    img.astype(np.float32) for img in self.roi_images] 
+                self.roi_images = [
+                    img.astype(np.float32) for img in self.roi_images]
 
             self.correct(offset=dark_run, gain=gain)
 
@@ -176,7 +176,7 @@ class BaseRoiIntensity(object):
         src: str
             karabo device ID
         prop: str
-            karabo property  
+            karabo property
         Return:
         -------
         fig: plotly Figure object
@@ -194,14 +194,14 @@ class BaseRoiIntensity(object):
         assert len(scan_data.shape) == 1
 
         align = xr.merge(
-            [self.roi_intensity.rename('roi_intensity'), 
-             scan_data.rename('scan_data')], 
+            [self.roi_intensity.rename('roi_intensity'),
+             scan_data.rename('scan_data')],
              join='inner')
 
         # Take mean and std after grouping with scan data
         mean_align = align.groupby('scan_data').mean(dim=['trainId'])
         std_align = align.groupby('scan_data').std(dim=['trainId'])
-        
+
         shape = mean_align['roi_intensity'].shape
         # Plotly traces
         data = []
@@ -209,17 +209,16 @@ class BaseRoiIntensity(object):
             for roi in range(shape[-2]):
                 data.append(
                     go.Scatter(
-                        x=mean_align['scan_data'], 
-                        y=mean_align['roi_intensity'][:, roi, pulse], 
+                        x=mean_align['scan_data'],
+                        y=mean_align['roi_intensity'][:, roi, pulse],
                         error_y=dict(
                             type='data',
                             array=std_align['roi_intensity'][:, roi, pulse],
                             visible=True),
                         visible = False,
-                        mode='lines+markers', 
+                        mode='lines+markers',
                         name=f"Pulse index: {pulse}"))
             data[n * mean_align['roi_intensity'].shape[-2]].visible = True
-
 
         options_dd = []
         for roi in range(self.roi_intensity.shape[-2]):
@@ -242,7 +241,8 @@ class BaseRoiIntensity(object):
         fig = go.Figure(data=data)
         fig.update_layout(updatemenus=updatemenus,
                           title=f'Module {self.modno}',
-                          xaxis=dict(title=f"Scan variable ({src}/{prop})", tickformat='d'),
+                          xaxis=dict(title=f"Scan variable ({src}/{prop})",
+                                     tickformat='d'),
                           yaxis=dict(title="Mean ROI intensity"))
 
         return fig
