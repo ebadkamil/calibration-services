@@ -2,3 +2,4 @@
 *.egg-*
 __pycache__
 !.gitignore
+!.gitlab-ci.yml
