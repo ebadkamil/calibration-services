@@ -17,8 +17,8 @@ import numpy as np
 import plotly.graph_objs as go
 import re
 
-from karabo_data import RunDirectory, stack_detector_data
-from karabo_data.geometry2 import AGIPD_1MGeometry, LPD_1MGeometry
+from extra_data import RunDirectory, stack_detector_data
+from extra_geom import AGIPD_1MGeometry, LPD_1MGeometry
 
 from .logger import out
 from ..helpers import timeit

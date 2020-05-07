@@ -11,7 +11,7 @@ import os
 import numpy as np
 import xarray as xr
 
-from karabo_data import DataCollection
+from extra_data import DataCollection
 from .base_roi_intensity import BaseRoiIntensity
 
 

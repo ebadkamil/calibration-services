@@ -16,8 +16,8 @@ import time
 import h5py
 import numpy as np
 
+from extra_data import DataCollection, by_index, H5File
 from iminuit import Minuit
-from karabo_data import DataCollection, by_index, H5File
 
 from .descriptors import IterativeHistogram
 from .fit_functions import least_squares_np

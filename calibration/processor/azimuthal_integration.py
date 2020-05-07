@@ -13,7 +13,7 @@ from scipy import constants
 import numpy as np
 import xarray as xr
 
-from karabo_data import DataCollection
+from extra_data import DataCollection
 
 from .assembler import ImageAssembler
 from .descriptors import MovingAverage, PyFaiAzimuthalIntegrator

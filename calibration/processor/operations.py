@@ -18,7 +18,7 @@ import h5py
 import numpy as np
 import xarray as xr
 
-from karabo_data import DataCollection, by_index, H5File
+from extra_data import DataCollection, by_index, H5File
 
 from ..helpers import pulse_filter, parse_ids, find_proposal, timeit
 

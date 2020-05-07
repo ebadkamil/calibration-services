@@ -15,7 +15,7 @@ import numpy as np
 import plotly.graph_objects as go
 import xarray as xr
 
-from karabo_data import DataCollection, by_index, H5File
+from extra_data import DataCollection, by_index, H5File
 
 from .descriptors import MovingAverage
 
