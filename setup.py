@@ -1,6 +1,8 @@
 import os.path as osp
 import re
+import sys
 from setuptools import setup, find_packages
+from setuptools.command.test import test as TestCommand
 
 
 def find_version():
@@ -9,6 +11,13 @@ def find_version():
         if match is not None:
             return match.group(1)
         raise RuntimeError("Unable to find version string.")
+
+
+class PyTest(TestCommand):
+    def run(self):
+        import pytest
+        errno = pytest.main(['--pyargs', 'calibration'])
+        sys.exit(errno)
 
 
 setup(name="calibration",
@@ -20,6 +29,7 @@ setup(name="calibration",
       package_data={
         'calibration.geometries': ['*.h5']
       },
+      cmdclass = {'test': PyTest},
       entry_points={
           "console_scripts": [
               "detector_characterize = calibration.application:detector_characterize",
@@ -36,5 +46,10 @@ setup(name="calibration",
            'iminuit',
            'pyFAI>0.16.0'
       ],
+      extras_require={
+        'test': [
+          'pytest',
+        ]
+      },
       python_requires='>=3.6',
 )

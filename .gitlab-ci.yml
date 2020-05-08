@@ -5,8 +5,7 @@ before_script:
     - export https_proxy="http://exflwgs06.desy.de:3128/"
     - apt update
     - apt -y install libopenmpi-dev
-    - pip install pytest
-    - pip install .
+    - pip install .[test]
 
 stages:
     - unittest
@@ -14,4 +13,4 @@ stages:
 unittest:
     stage: unittest
     script:
-        - pytest --pyargs calibration
+        - python setup.py test
