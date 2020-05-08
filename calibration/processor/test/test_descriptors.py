@@ -50,3 +50,35 @@ class TestIterativeHistogram(unittest.TestCase):
 
         self.assertEqual(
             hist.shape, self.data.shape + (len(self.bin_edges)-1,))
+
+
+class TestMovingAverage(unittest.TestCase):
+    _moving_average = MovingAverage(window=2)
+
+    def test_moving_average(self):
+        data = np.full((4, 6), 1.0)
+        self._moving_average = data
+
+        np.testing.assert_array_equal(self._moving_average, data)
+
+        data = np.full((4, 6), 2.0)
+        self._moving_average = data
+        np.testing.assert_array_equal(
+            self._moving_average, np.full((4, 6), 1.5))
+
+        data = np.full((4, 6), 3.0)
+        self._moving_average = data
+        np.testing.assert_array_equal(
+            self._moving_average, np.full((4, 6), 2.5))
+
+        # Test window size change
+        del self._moving_average
+        self.__class__._moving_average.window = 3
+
+        self.assertEqual(self.__class__._moving_average._ma_data, 0)
+        self.assertEqual(len(self.__class__._moving_average._data_queue), 0)
+
+        data = np.full((4, 6), 4.0)
+        self._moving_average = data
+        np.testing.assert_array_equal(
+            self._moving_average, np.full((4, 6), 4.0))
