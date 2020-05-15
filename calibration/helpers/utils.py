@@ -182,3 +182,189 @@ def find_proposal(proposal, run, data='raw'):
         run = 'r' + run.rjust(4, '0')
 
     return osp.join(prop_dir, data, run)
+
+
+def dark2file(filename, dic):
+    """
+    Save a dark data dictionary into an h5 file.
+    Parameters:
+    -----------
+    filename: str
+        A filename where to store the data
+    dic: dictionary
+        A dictionary with module numbers as keys and dark data as values
+
+    Return:
+    -------
+
+    """
+    with h5py.File(filename, 'w') as f:
+        g = f.create_group(f'entry_1/FXE_DET_LPD1M-1')
+        for modno, data in dic.items():
+            if data is not None:
+                h = g.create_group(f'module_{modno:02}')
+                h.create_dataset('data', data=data)
+
+
+def file2dark(filename, modules):
+    """
+    Retrieve dark data from an h5 file as a dictionary
+    Parameters:
+    ----------
+    filename: str
+       An h5 file with dark data
+    modules: list, int
+       A list of modules to put data in
+
+    Return:
+    -------
+    dic: dictionary
+        A dictionary with module numbers as keys and dark data as values
+    """
+    file_ = h5py.File(filename, 'r')
+    dic = {}
+    for modno in modules:
+        path = f'entry_1/FXE_DET_LPD1M-1/module_{modno:02}/data'
+
+    dic[modno] = file_[path][:]
+
+    return dic
+
+
+def intensity2file(filename, dic, digitizer=False):
+    """
+    Save a ROI intensity dictionary into an h5 file.
+    Parameters:
+    -----------
+    filename: str
+        A filename where to store the data
+    dic: dictionary
+        A dictionary with module numbers as keys and intensity data
+        as values in an xarray with 'trainId' as coordinates
+    digitizer: dictionary
+        A dictionary of digitizer data
+
+    Return:
+    -------
+
+    """
+    with h5py.File(filename, 'w') as f:
+        g = f.create_group(f'entry_1/FXE_DET_LPD1M-1')
+        for modno, data in dic.items():
+            if data is not None and digitizer:
+                h = g.create_group(f'module_{modno:02}')
+                h.create_dataset('intensity', data=data.values)
+                h.create_dataset('trainId', data=data.coords.get('trainId'))
+                h.create_dataset('digitizer', data=digitizer)
+            else:
+                h = g.create_group(f'module_{modno:02}')
+                h.create_dataset('intensity', data=data.values)
+                h.create_dataset('trainId', data=data.coords.get('trainId'))
+
+
+def file2intensity(filename, modules):
+    """
+    Retrieve intensity data from an h5 file as a dictionary
+    Parameters:
+    ----------
+    filename: str
+       An h5 file with intensity data
+    modules: list, int
+       A list of modules to put data in
+
+    Return:
+    -------
+    dic: dictionary
+        A dictionary with module numbers as keys and intensity data
+        as values in an xarray with 'trainId' as coordinates
+    """
+    file_ = h5py.File(filename, 'r')
+    dic = {}
+    for modno in modules:
+        grp = file_[f'entry_1/FXE_DET_LPD1M-1/module_{modno:02}']
+        data = grp['intensity'][:]
+        tid = grp['trainId'][:]
+        arr = xr.DataArray(data, coords={'train': tid}, dims=['train', 'mem_cells'])
+
+    dic[modno] = arr
+
+    return dic
+
+
+def delay2file(filename, dic):
+    """
+    Save a delay dictionary into an h5 file.
+    Parameters:
+    -----------
+    filename: str
+        A filename where to store the data
+    dic: dictionary
+        A dictionary with module numbers as keys and delay data
+        as values in an xarray with 'trainId' as coordinates
+
+    Return:
+    -------
+
+    """
+    with h5py.File(filename, 'w') as f:
+        g = f.create_group(f'entry_1/FXE_DET_LPD1M-1')
+        for modno, data in dic.items():
+            if data is not None:
+                h = g.create_group(f'module_{modno:02}')
+                h.create_dataset(
+                        'delay [ns]',
+                        data=np.stack([pulse['x'] for pulse in dic[modno]])
+                        )
+                h.create_dataset(
+                        'ROI_intensity',
+                        data=np.stack([pulse['y'] for pulse in dic[modno]])
+                        )
+                h.create_dataset(
+                        'error_y',
+                        data=np.stack([pulse['error_y']['array'] for pulse in dic[modno]])
+                        )
+                h.create_dataset(
+                        'pulse',
+                        data=np.stack(
+                            [np.asarray(pulse['name'][-1:],dtype=np.uint8) for pulse in dic[modno]]
+                            )
+                        )
+
+
+def file2delay(filename, modules):
+    """
+    Retrieve delay data from an h5 file as a dictionary
+    Parameters:
+    ----------
+    filename: str
+       An h5 file with delayy data
+    modules: list, int
+       A list of modules to put data in
+
+    Return:
+    -------
+    dic: dictionary
+        A dictionary with module numbers as keys and delay data
+        as values in an xarray with 'memory cells' and 'pulses'
+        as coordinates
+    """
+    file_ = h5py.File(filename, 'r')
+    dic = {}
+    for modno in modules:
+        grp = file_[f'entry_1/FXE_DET_LPD1M-1/module_{modno:02}']
+        delay = grp['delay [ns]'][:]
+        mean_ROI_int = grp['ROI_intensity'][:]
+        error_int = grp['error_y'][:]
+        pulse = grp['pulse'][:]
+        arr = xr.Dataset(
+            data_vars = {
+                'delay_ns': (['mem_cells','point'], xr.DataArray(delay)),
+                'ROI_intensity': (['mem_cells','point'], xr.DataArray(mean_ROI_int)),
+                'error_int': (['mem_cells','point'], xr.DataArray(error_int))
+                }
+            )
+
+            dic[modno] = arr
+
+    return dic
+
