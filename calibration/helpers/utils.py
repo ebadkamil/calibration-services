@@ -7,9 +7,12 @@ All rights reserved.
 """
 from functools import wraps
 from glob import iglob
+import h5py
 from itertools import chain
+import numpy as np
 import os.path as osp
 import psutil as ps
+import xarray as xr
 
 
 def timeit(name):
@@ -284,7 +287,8 @@ def file2intensity(filename, modules):
         grp = file_[f'entry_1/FXE_DET_LPD1M-1/module_{modno:02}']
         data = grp['intensity'][:]
         tid = grp['trainId'][:]
-        arr = xr.DataArray(data, coords={'train': tid}, dims=['train', 'mem_cells'])
+        arr = xr.DataArray(data, coords={'train': tid},
+                           dims=['train', 'mem_cells'])
 
     dic[modno] = arr
 
@@ -300,7 +304,8 @@ def delay2file(filename, dic):
         A filename where to store the data
     dic: dictionary
         A dictionary with module numbers as keys and delay data
-        as values in an xarray with 'trainId' as coordinates
+        as values in an xarray with '
+        trainId' as coordinates
 
     Return:
     -------
@@ -313,22 +318,18 @@ def delay2file(filename, dic):
                 h = g.create_group(f'module_{modno:02}')
                 h.create_dataset(
                         'delay [ns]',
-                        data=np.stack([pulse['x'] for pulse in dic[modno]])
-                        )
+                        data=np.stack([pulse['x'] for pulse in dic[modno]]))
                 h.create_dataset(
                         'ROI_intensity',
-                        data=np.stack([pulse['y'] for pulse in dic[modno]])
-                        )
+                        data=np.stack([pulse['y'] for pulse in dic[modno]]))
                 h.create_dataset(
                         'error_y',
-                        data=np.stack([pulse['error_y']['array'] for pulse in dic[modno]])
-                        )
+                        data=np.stack(
+                            [pulse['error_y']['array'] for pulse in dic[modno]]))
                 h.create_dataset(
                         'pulse',
                         data=np.stack(
-                            [np.asarray(pulse['name'][-1:],dtype=np.uint8) for pulse in dic[modno]]
-                            )
-                        )
+                            [np.asarray(pulse['name'][-1:], dtype=np.uint8) for pulse in dic[modno]]))
 
 
 def file2delay(filename, modules):
@@ -360,11 +361,8 @@ def file2delay(filename, modules):
             data_vars = {
                 'delay_ns': (['mem_cells','point'], xr.DataArray(delay)),
                 'ROI_intensity': (['mem_cells','point'], xr.DataArray(mean_ROI_int)),
-                'error_int': (['mem_cells','point'], xr.DataArray(error_int))
-                }
-            )
+                'error_int': (['mem_cells','point'], xr.DataArray(error_int))})
 
-            dic[modno] = arr
+        dic[modno] = arr
 
     return dic
-
