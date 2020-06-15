@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import re
 
-from extra_data import RunDirectory, stack_detector_data
+from extra_data import RunDirectory, stack_detector_data, stack_data
 from extra_geom import AGIPD_1MGeometry, LPD_1MGeometry
 
 from ..helpers import timeit, parse_ids
@@ -33,6 +33,10 @@ class ImageAssembler(object):
 
         elif detector == "AGIPD":
             return cls.AgipdAssembler(
+                geom_file=geom_file, quad_prositions=quad_prositions)
+
+        elif detector == "JUNGFRAU":
+            return cls.JungFrauAssembler(
                 geom_file=geom_file, quad_prositions=quad_prositions)
 
         else:
@@ -214,6 +218,53 @@ class ImageAssembler(object):
             # stack detector data
             try:
                 stacked_data = stack_detector_data(train_data, "image.data")
+            except (ValueError, IndexError, KeyError) as e:
+                print(e)
+                return
+
+            if stacked_data.shape[0] != 0:
+                return stacked_data
+
+    class JungFrauAssembler(BaseAssembler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+        def _get_modules_data(self, train_data, pulses, dark_data=None):
+            def _corrections(source):
+                pattern_po20 = "(.+)/DET/JNGFR(.+):daqOutput"
+                pattern_pr20 = "(.+)/DET/RECEIVER-(.+):daqOutput"
+
+                result = re.match(pattern_po20, source) or re.match(
+                    pattern_pr20, source)
+                modno = int(result.group(2).strip())
+                try:
+                    image = train_data[source]["data.adc"]
+                except KeyError:
+                    return
+
+                if pulses != [-1] and image.shape[0] != 0:
+                    image = image[pulses, ...]
+
+                if image.dtype == np.uint16:
+                    image = image.astype(np.float32)
+
+                if dark_data and image.shape[0] != 0:
+                    if pulses != [-1]:
+                        dark = dark_data[str(modno)][pulses, ...]
+                    else:
+                        dark = dark_data[str(modno)][0:image.shape[0], ...]
+                    image -= dark
+
+                train_data[source]["data.adc"] = image
+
+            with ThreadPoolExecutor(
+                    max_workers=len(train_data.keys())) as executor:
+                for source in train_data.keys():
+                    executor.submit(_corrections, source)
+
+            # stack detector data
+            try:
+                stacked_data = stack_data(train_data, "data.adc")
             except (ValueError, IndexError, KeyError) as e:
                 print(e)
                 return

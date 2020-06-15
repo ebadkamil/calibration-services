@@ -13,7 +13,7 @@ from extra_geom import AGIPD_1MGeometry
 
 from calibration.processor.assembler import ImageAssembler
 
-class TestAssembler(unittest.TestCase):
+class TestAgipdAssembler(unittest.TestCase):
 
     def setUp(self):
         self._assembler = ImageAssembler.for_detector("AGIPD")
@@ -90,3 +90,36 @@ class TestAssembler(unittest.TestCase):
         assembled = self._assembler.assemble_image(
             train_data, use_out_arr=True)
         self.assertIsNotNone(self._assembler.out_array)
+
+
+class TestJungFrauAssembler(unittest.TestCase):
+
+    def setUp(self):
+        self._assembler = ImageAssembler.for_detector("JungFrau")
+        key = "data.adc"
+        self._train_data_pre_20 = {
+            'FXE_XAD_JF1M/DET/RECEIVER-1:daqOutput':
+                {key: np.ones((1, 512, 1024), dtype=np.uint16)},
+            'FXE_XAD_JF1M/DET/RECEIVER-2:daqOutput':
+                {key: np.ones((1, 512, 1024), dtype=np.uint16)},
+        }
+
+        self._train_data_post_20 = {
+            'FXE_XAD_JF1M/DET/JNGFR01:daqOutput':
+                {key: np.ones((1, 512, 1024), dtype=np.uint16)},
+            'FXE_XAD_JF1M/DET/JNGFR02:daqOutput':
+                {key: np.ones((1, 512, 1024), dtype=np.uint16)},
+        }
+
+    def test_assemble_image(self):
+        train_data = copy.deepcopy(self._train_data_pre_20)
+        assembled = self._assembler.assemble_image(train_data)
+        self.assertEqual(assembled.dtype, np.float32)
+        self.assertEqual(assembled.shape[0], 1)
+        self.assertEqual(assembled.shape, (1, 2, 512, 1024))
+
+        train_data = copy.deepcopy(self._train_data_post_20)
+        assembled = self._assembler.assemble_image(train_data)
+        self.assertEqual(assembled.dtype, np.float32)
+        self.assertEqual(assembled.shape[0], 1)
+        self.assertEqual(assembled.shape, (1, 2, 512, 1024))

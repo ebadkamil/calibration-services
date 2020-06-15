@@ -16,7 +16,7 @@ def find_version():
 class PyTest(TestCommand):
     def run(self):
         import pytest
-        errno = pytest.main(['--pyargs', 'calibration'])
+        errno = pytest.main(['--pyargs', 'calibration', '-v'])
         sys.exit(errno)
 
 
