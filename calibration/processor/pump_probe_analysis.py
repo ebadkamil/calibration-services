@@ -24,9 +24,9 @@ from ..helpers import find_proposal, timeit
 
 
 class PumpProbeMode(IntEnum):
-    EVEN_ODD = 1
-    ODD_EVEN = 2
-    SAME_TRAIN = 3
+    EVEN_ODD = 1 # Even train On, ODD train Off
+    ODD_EVEN = 2 # Odd train ON, Even train Off
+    SAME_TRAIN = 3 # ON OFF in same train for pulse resolved detector
 
 
 class AnalysisType(IntEnum):
@@ -71,7 +71,14 @@ class PumpProbeAnalysis:
         "azimuthal": AnalysisType.AZIMUTHAL,
         })
 
-    def __init__(self, proposal, run, dettype, pp_mode, analysis_type):
+    def __init__(self,
+                 proposal,
+                 run,
+                 dettype,
+                 pp_mode,
+                 analysis_type,
+                 on_pulses=None,
+                 off_pulses=None):
 
         assert pp_mode in PumpProbeAnalysis._pp_mode.keys()
         assert analysis_type in PumpProbeAnalysis._analysis_type.keys()
@@ -80,6 +87,14 @@ class PumpProbeAnalysis:
         assert self.dettype in ["AGIPD", "LPD", "JUNGFRAU"]
 
         self.pp_mode = PumpProbeAnalysis._pp_mode[pp_mode]
+
+        if self.pp_mode == PumpProbeMode.SAME_TRAIN:
+            assert all([on_pulses is not None, off_pulses is not None])
+            self.on_pulses = parse_ids(on_pulses)
+            self.off_pulses = parse_ids(off_pulses)
+            assert self._validate_on_off_pulse_pattern(
+                self.on_pulses, self.off_pulses)
+
         self.analysis_type = PumpProbeAnalysis._analysis_type[analysis_type]
 
         self.run = detector_data_collection(proposal, run, dettype)
@@ -87,6 +102,7 @@ class PumpProbeAnalysis:
         self.on = None
         self.off = None
         self.difference = None
+        self._prev_on = None
 
     def process(self, **kwargs):
         if self.analysis_type == AnalysisType.ROI:
@@ -97,6 +113,13 @@ class PumpProbeAnalysis:
             if roi is None or fom_type not in ["mean", "proj"]:
                 print(f"Check roi {roi} and fom_type {fom_type}")
                 return
+
+            if roi is not None and background is not None:
+                if not self._validate_rois(roi, background):
+                    print("Signal and background roi are of different size",
+                          f"{signal:{roi} background:{background}}")
+                    return
+
         train_ids = []
         on = []
         off = []
@@ -118,6 +141,7 @@ class PumpProbeAnalysis:
                         signal_on -= on_image[..., bx0:bx1, by0:by1]
                         signal_off -= off_image[..., bx0:bx1, by0:by1]
 
+
                     if fom_type == 'proj':
                         on_fom = np.nanmean(signal_on, axis=-1)
                         off_fom = np.nanmean(signal_off, axis=-1)
@@ -135,7 +159,7 @@ class PumpProbeAnalysis:
 
         if trains:
             coords = {'trainId': np.array(train_ids)}
-            dims = ['trainId', 'mem_cells'] + \
+            dims = ['trainId'] + \
                    [f'd{i}' for i in range(len(on.shape[1:]))]
             self.on = xr.DataArray(
                 data=np.stack(on), dims=dims, coords=coords)
@@ -143,3 +167,31 @@ class PumpProbeAnalysis:
                 data=np.stack(off), dims=dims, coords=coords)
             self.diff = xr.DataArray(
                 data=np.stack(diff), dims=dims, coords=coords)
+
+    def _on_off_data(self, tid, image):
+        if self.pp_mode = PumpProbeMode.SAME_TRAIN:
+            on_image = np.nanmean(image[self.on_pulses, ...], axis=0)
+            off_image = np.nanmean(image[self.off_pulses, ...], axis=0)
+
+        if self.pp_mode in [PumpProbeMode.EVEN_ODD, PumpProbeMode.ODD_EVEN]:
+            flag = 0 if self.pp_mode == PumpProbeMode.EVEN_ODD else 1
+
+            if tid % 2 == 1 ^ flag:
+                self._prev_on = np.nanmean(image, axis=0)
+
+            else:
+                on_image = self._prev_on
+                self._prev_on = None
+                off_image = np.nanmean(image, axis=0)
+
+        return on_image, off_image
+
+    def _validate_on_off_pulse_pattern(self, on_pulses, off_pulses):
+        size_check = len(on_pulses) == len(off_pulses)
+        return all(
+            [size_check] + [pulse not in off_pulses for pulse in on_pulses])
+
+    def _validate_rois(self, roi1, roi2):
+        x0, x1, y0, y1 = roi1
+        bx0, bx1, by0, by1 = roi2
+        return all([x1-x0 == bx1-bx0, y1-y0 == by1-by0])
