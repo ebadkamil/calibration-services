@@ -196,6 +196,46 @@ class PumpProbeAnalysis:
 
             return self.on, self.off, self.fom
 
+    def fom_scan(self, src, prop):
+        if self.fom is None:
+            print("Figure of merit is not available")
+            return
+
+        files = [f for f in os.listdir(self.run_path) if f.endswith('.h5')]
+        files = [os.path.join(self.run_path, f)
+                 for f in fnmatch.filter(files, '*DA*')]
+
+        scan_data = DataCollection.from_paths(files).get_array(src, prop)
+
+        assert len(scan_data.shape) == 1
+
+        align = xr.merge(
+            [self.fom.rename('fom'),
+             scan_data.rename('scan_data')],
+             join='inner')
+
+        # Take mean and std after grouping with scan data
+        mean_align = align.groupby('scan_data').mean(dim=['trainId'])
+        std_align = align.groupby('scan_data').std(dim=['trainId'])
+
+        # Create ScatterPlot object
+        fig = ScatterPlot(title=f'Pump Probe Analysis',
+                          xlabel=f"Scan variable ({src}/{prop})",
+                          ylabel="FOM",
+                          legend='Module',
+                          )
+
+        # Set data
+        fig.setData(
+            mean_align['scan_data'],
+            mean_align['fom'],
+            yerror=std_align['fom'])
+
+        return (mean_align['scan_data'].values,
+                mean_align['fom'].values,
+                std_align['fom'].values,
+                fig)
+
     def _on_off_data(self, tid, image):
         on_image = None
         off_image = None
