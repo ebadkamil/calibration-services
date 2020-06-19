@@ -9,6 +9,8 @@ from functools import wraps
 from glob import iglob
 from itertools import chain
 import os.path as osp
+
+import numpy as np
 import psutil as ps
 
 
@@ -182,3 +184,26 @@ def find_proposal(proposal, run, data='raw'):
         run = 'r' + run.rjust(4, '0')
 
     return osp.join(prop_dir, data, run)
+
+
+def slice_curve(y, x, x_min=None, x_max=None):
+    """Slice an x-y plot based on the range of x values.
+
+    x is assumed to be monotonically increasing.
+
+    :param numpy.ndarray y: 1D array.
+    :param numpy.ndarray x: 1D array.
+    :param None/float x_min: minimum x value.
+    :param None/float x_max: maximum x value.
+
+    :return: (the sliced x and y)
+    :rtype: (numpy.ndarray, numpy.ndarray)
+    """
+    if x_min is None:
+        x_min = x.min()
+
+    if x_max is None:
+        x_max = x.max()
+
+    indices = np.where(np.logical_and(x <= x_max, x >= x_min))
+    return y[indices], x[indices]
