@@ -36,7 +36,7 @@ class ScatterPlot(go.Figure):
         self.update_layout(
             title=self._title,
             title_x=0.5,
-            xaxis=dict(title=self._xlabel, tickformat='d'),
+            xaxis=dict(title=self._xlabel),
             yaxis=dict(title=self._ylabel))
 
     def setData(self, xdata, ydata, yerror=None):
