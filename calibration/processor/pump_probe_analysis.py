@@ -6,8 +6,9 @@ Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
 All rights reserved.
 """
 
-from enum import IntEnum
 from collections import OrderedDict
+from enum import IntEnum
+import fnmatch
 import os.path as osp
 import os
 import re
@@ -16,11 +17,12 @@ from scipy import constants
 import numpy as np
 import xarray as xr
 
-from extra_data import DataCollection
+from extra_data import DataCollection, by_index
 
 from .assembler import ImageAssembler
 from .descriptors import MovingAverage, PyFaiAzimuthalIntegrator
-from ..helpers import find_proposal, timeit
+from ..gui.plots import ScatterPlot
+from ..helpers import find_proposal, timeit, slice_curve
 
 
 class PumpProbeMode(IntEnum):
@@ -34,10 +36,10 @@ class AnalysisType(IntEnum):
     AZIMUTHAL = 2
 
 
-def detector_data_collection(proposal, run, dettype):
+def detector_data_collection(proposal, run, dettype, data='raw'):
     dettype = dettype.upper()
     assert dettype in ["AGIPD", "LPD", "JUNGFRAU"]
-    run_path = find_proposal(proposal, run)
+    run_path = find_proposal(proposal, run, data=data)
     pattern = f"(.+){dettype}(.+)"
 
     if dettype == 'JUNGFRAU':
@@ -53,7 +55,7 @@ def detector_data_collection(proposal, run, dettype):
     data_path = "data.adc" if dettype == "JUNGFRAU" else "image.data"
 
     run = DataCollection.from_paths(files).select(
-        [("*/DET/*", data_path)])
+        [("*/DET/*", data_path)]).select_trains(by_index[0:2000])
 
     return run
 
@@ -78,7 +80,8 @@ class PumpProbeAnalysis:
                  pp_mode,
                  analysis_type,
                  on_pulses=None,
-                 off_pulses=None):
+                 off_pulses=None,
+                 data='proc'):
 
         assert pp_mode in PumpProbeAnalysis._pp_mode.keys()
         assert analysis_type in PumpProbeAnalysis._analysis_type.keys()
@@ -97,11 +100,13 @@ class PumpProbeAnalysis:
 
         self.analysis_type = PumpProbeAnalysis._analysis_type[analysis_type]
 
-        self.run = detector_data_collection(proposal, run, dettype)
+        self.run_path = find_proposal(proposal, run, data=data)
+        self.run = detector_data_collection(proposal, run, dettype, data=data)
         self.assembler =ImageAssembler.for_detector(dettype)
+
         self.on = None
         self.off = None
-        self.difference = None
+        self.fom = None
         self._prev_on = None
 
     def process(self, **kwargs):
@@ -109,6 +114,7 @@ class PumpProbeAnalysis:
             roi = kwargs.get("roi", None)
             background = kwargs.get("bkg", None)
             fom_type = kwargs.get("fom_type", None)
+            auc = kwargs.get("auc", [None, None])
 
             if roi is None or fom_type not in ["mean", "proj"]:
                 print(f"Check roi {roi} and fom_type {fom_type}")
@@ -123,10 +129,14 @@ class PumpProbeAnalysis:
         train_ids = []
         on = []
         off = []
-        diff = []
+        foms = []
         for tid, data in self.run.trains():
 
             assembled = self.assembler.assemble_image(data)
+
+            if assembled is None:
+                continue
+
             on_image, off_image = self._on_off_data(tid, assembled)
 
             if on_image is not None and off_image is not None:
@@ -141,35 +151,56 @@ class PumpProbeAnalysis:
                         signal_on -= on_image[..., bx0:bx1, by0:by1]
                         signal_off -= off_image[..., bx0:bx1, by0:by1]
 
-
                     if fom_type == 'proj':
-                        on_fom = np.nanmean(signal_on, axis=-1)
-                        off_fom = np.nanmean(signal_off, axis=-1)
+                        on_fom = np.nanmean(signal_on, axis=-2)
+                        off_fom = np.nanmean(signal_off, axis=-2)
+                        diff = on_fom - off_fom
+                        if on_image.ndim == 3:
+                            # For multi module JungFrau (mod, px, py)
+                            temp = []
+                            for mod in range(on_image.shape[0]):
+                                temp.append(np.trapz(*slice_curve(
+                                    diff[mod],
+                                    np.arange(on_fom.shape[-1]),
+                                    *auc)))
 
+                            fom = np.stack(temp)
+                        else:
+                            fom = np.trapz(*slice_curve(
+                                    diff, np.arange(on_fom.shape[-1]), *auc))
                     else:
                         on_fom = np.nanmean(signal_on, axis=(-1, -2))
                         off_fom = np.nanmean(signal_off, axis=(-1, -2))
+                        fom = on_fom = off_fom
 
                 elif self.analysis_type == AnalysisType.AZIMUTHAL:
-                    pass
+                    continue
 
                 on.append(on_fom)
                 off.append(off_fom)
-                diff.append(on_fom - off_fom)
+                foms.append(fom)
 
-        if trains:
+        if train_ids:
             coords = {'trainId': np.array(train_ids)}
             dims = ['trainId'] + \
-                   [f'd{i}' for i in range(len(on.shape[1:]))]
+                   [f'd{i}' for i in range(len(np.stack(on).shape[1:]))]
             self.on = xr.DataArray(
                 data=np.stack(on), dims=dims, coords=coords)
             self.off = xr.DataArray(
                 data=np.stack(off), dims=dims, coords=coords)
-            self.diff = xr.DataArray(
-                data=np.stack(diff), dims=dims, coords=coords)
+
+            dims = ['trainId'] + \
+                   [f'd{i}' for i in range(len(np.stack(foms).shape[1:]))]
+            self.fom = xr.DataArray(
+                data=np.stack(foms), dims=dims, coords=coords)
+
+            return self.on, self.off, self.fom
 
     def _on_off_data(self, tid, image):
-        if self.pp_mode = PumpProbeMode.SAME_TRAIN:
+        on_image = None
+        off_image = None
+
+        if self.pp_mode == PumpProbeMode.SAME_TRAIN:
             on_image = np.nanmean(image[self.on_pulses, ...], axis=0)
             off_image = np.nanmean(image[self.off_pulses, ...], axis=0)
 
