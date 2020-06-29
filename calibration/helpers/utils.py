@@ -206,4 +206,36 @@ def slice_curve(y, x, x_min=None, x_max=None):
         x_max = x.max()
 
     indices = np.where(np.logical_and(x <= x_max, x >= x_min))
-    return y[indices], x[indices]
+    return y[..., indices], x[indices]
+
+
+def detector_data_collection(proposal, run, dettype, data='raw'):
+    """
+    proposal: str, int
+        A proposal number, such as 2012, '2012', 'p002012', or a path such as
+        '/gpfs/exfel/exp/SPB/201701/p002012'.
+    run: str, int
+        A run number such as 243, '243' or 'r0243'.
+    dettype: (str) AGIPD, LPD, JungFrau (case insensitive)
+    data: str ['raw', 'proc']
+        Default: 'raw'
+    """
+    dettype = dettype.upper()
+    assert dettype in ["AGIPD", "LPD", "JUNGFRAU"]
+    run_path = find_proposal(proposal, run, data=data)
+    pattern = f"(.+){dettype}(.+)"
+    if dettype == 'JUNGFRAU':
+        pattern = f"(.+)JNGFR(.+)"
+
+    files = [os.path.join(run_path, f)
+             for f in os.listdir(run_path)
+             if f.endswith('.h5') and re.match(pattern, f)]
+
+    if not files:
+        return
+    data_path = "data.adc" if dettype == "JUNGFRAU" else "image.data"
+
+    dc = DataCollection.from_paths(files).select(
+        [("*/DET/RECEIVER-2*", data_path)]).select_trains(by_index[0:3500])
+
+    return dc
