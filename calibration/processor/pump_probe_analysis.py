@@ -17,47 +17,14 @@ from scipy import constants
 import numpy as np
 import xarray as xr
 
-from extra_data import DataCollection, by_index
+from karabo_data import DataCollection, by_index
 
 from .assembler import ImageAssembler
 from .descriptors import MovingAverage, PyFaiAzimuthalIntegrator
 from ..gui.plots import ScatterPlot
-from ..helpers import find_proposal, timeit, slice_curve
-
-
-class PumpProbeMode(IntEnum):
-    EVEN_ODD = 1 # Even train On, ODD train Off
-    ODD_EVEN = 2 # Odd train ON, Even train Off
-    SAME_TRAIN = 3 # ON OFF in same train for pulse resolved detector
-
-
-class AnalysisType(IntEnum):
-    ROI = 1
-    AZIMUTHAL = 2
-
-
-def detector_data_collection(proposal, run, dettype, data='raw'):
-    dettype = dettype.upper()
-    assert dettype in ["AGIPD", "LPD", "JUNGFRAU"]
-    run_path = find_proposal(proposal, run, data=data)
-    pattern = f"(.+){dettype}(.+)"
-
-    if dettype == 'JUNGFRAU':
-        pattern = f"(.+)JNGFR(.+)"
-
-    files = [os.path.join(run_path, f)
-             for f in os.listdir(run_path)
-             if f.endswith('.h5') and re.match(pattern, f)]
-
-    if not files:
-        return
-
-    data_path = "data.adc" if dettype == "JUNGFRAU" else "image.data"
-
-    run = DataCollection.from_paths(files).select(
-        [("*/DET/*", data_path)]).select_trains(by_index[0:2000])
-
-    return run
+from ..helpers import (
+    AnalysisType, detector_data_collection, find_proposal, PumpProbeMode,
+    slice_curve, timeit)
 
 
 class PumpProbeAnalysis:
@@ -101,7 +68,9 @@ class PumpProbeAnalysis:
         self.analysis_type = PumpProbeAnalysis._analysis_type[analysis_type]
 
         self.run_path = find_proposal(proposal, run, data=data)
-        self.run = detector_data_collection(proposal, run, dettype, data=data)
+        self.run = detector_data_collection(
+            proposal, run, dettype, data=data)
+
         self.assembler =ImageAssembler.for_detector(dettype)
 
         self.on = None
@@ -130,13 +99,11 @@ class PumpProbeAnalysis:
         on = []
         off = []
         foms = []
+
         for tid, data in self.run.trains():
-
             assembled = self.assembler.assemble_image(data)
-
             if assembled is None:
                 continue
-
             on_image, off_image = self._on_off_data(tid, assembled)
 
             if on_image is not None and off_image is not None:
@@ -153,28 +120,29 @@ class PumpProbeAnalysis:
 
                     if fom_type == 'proj':
                         on_fom = np.nanmean(signal_on, axis=-2)
-                        off_fom = np.nanmean(signal_off, axis=-2)
-                        diff = on_fom - off_fom
-                        if on_image.ndim == 3:
-                            # For multi module JungFrau (mod, px, py)
-                            temp = []
-                            for mod in range(on_image.shape[0]):
-                                temp.append(np.trapz(*slice_curve(
-                                    diff[mod],
-                                    np.arange(on_fom.shape[-1]),
-                                    *auc)))
+                        # Normalize on spectra with area under curve
+                        on_fom /= np.trapz(*slice_curve(
+                                on_fom, np.arange(on_fom.shape[-1])))
 
-                            fom = np.stack(temp)
-                        else:
-                            fom = np.trapz(*slice_curve(
-                                    diff, np.arange(on_fom.shape[-1]), *auc))
+                        off_fom = np.nanmean(signal_off, axis=-2)
+                        # Normalize off spectra with area under curve
+                        off_fom /= np.trapz(*slice_curve(
+                                off_fom, np.arange(off_fom.shape[-1])))
                     else:
                         on_fom = np.nanmean(signal_on, axis=(-1, -2))
                         off_fom = np.nanmean(signal_off, axis=(-1, -2))
-                        fom = on_fom = off_fom
 
                 elif self.analysis_type == AnalysisType.AZIMUTHAL:
                     continue
+
+                diff = np.abs(on_fom - off_fom)
+                if diff.shape[-1] == 1:
+                    # Just a number in case of mean roi
+                    fom = diff
+                else:
+                    # A curve in case of azimuthal integration or projection
+                    fom = np.trapz(*slice_curve(
+                                diff, np.arange(diff.shape[-1]), *auc))
 
                 on.append(on_fom)
                 off.append(off_fom)
@@ -228,8 +196,9 @@ class PumpProbeAnalysis:
         # Set data
         fig.setData(
             mean_align['scan_data'],
-            mean_align['fom'],
-            yerror=std_align['fom'])
+            mean_align['fom'].squeeze(axis=-1),
+            yerror=std_align['fom'].squeeze(axis=-1)
+            )
 
         return (mean_align['scan_data'].values,
                 mean_align['fom'].values,
@@ -239,7 +208,6 @@ class PumpProbeAnalysis:
     def _on_off_data(self, tid, image):
         on_image = None
         off_image = None
-
         if self.pp_mode == PumpProbeMode.SAME_TRAIN:
             on_image = np.nanmean(image[self.on_pulses, ...], axis=0)
             off_image = np.nanmean(image[self.off_pulses, ...], axis=0)
