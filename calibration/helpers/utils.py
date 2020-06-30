@@ -5,11 +5,16 @@ Author: Ebad Kamil <ebad.kamil@xfel.eu>
 Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
 All rights reserved.
 """
+import fnmatch
 from functools import wraps
 from glob import iglob
 from itertools import chain
 import os.path as osp
+
+import numpy as np
 import psutil as ps
+
+from extra_data import DataCollection, by_index
 
 
 def timeit(name):
@@ -141,7 +146,9 @@ def get_virtual_memory():
 
 
 def find_proposal(proposal, run, data='raw'):
-    """Access EuXFEL data on the Maxwell cluster by proposal and run number.
+    """From EXtra-data
+
+    Access EuXFEL data on the Maxwell cluster by proposal and run number.
     Parameters
     ----------
     proposal: str, int
@@ -182,3 +189,80 @@ def find_proposal(proposal, run, data='raw'):
         run = 'r' + run.rjust(4, '0')
 
     return osp.join(prop_dir, data, run)
+
+
+def slice_curve(y, x, x_min=None, x_max=None):
+    """From EXtra-foam
+    Slice an x-y plot based on the range of x values.
+
+    x is assumed to be monotonically increasing.
+
+    :param numpy.ndarray y: 1D array.
+    :param numpy.ndarray x: 1D array.
+    :param None/float x_min: minimum x value.
+    :param None/float x_max: maximum x value.
+
+    :return: (the sliced x and y)
+    :rtype: (numpy.ndarray, numpy.ndarray)
+    """
+    if x_min is None:
+        x_min = x.min()
+
+    if x_max is None:
+        x_max = x.max()
+
+    indices = np.where(np.logical_and(x <= x_max, x >= x_min))
+    return y[..., indices], x[indices]
+
+
+def detector_data_collection(proposal, run, dettype, data='raw'):
+    """
+    proposal: str, int
+        A proposal number, such as 2012, '2012', 'p002012', or a path such as
+        '/gpfs/exfel/exp/SPB/201701/p002012'.
+    run: str, int
+        A run number such as 243, '243' or 'r0243'.
+    dettype: (str) AGIPD, LPD, JungFrau (case insensitive)
+    data: str ['raw', 'proc']
+        Default: 'raw'
+    """
+    dettype = dettype.upper()
+    assert dettype in ["AGIPD", "LPD", "JUNGFRAU"]
+    run_path = find_proposal(proposal, run, data=data)
+    pattern = f"(.+){dettype}(.+)"
+    if dettype == 'JUNGFRAU':
+        pattern = f"(.+)JNGFR(.+)"
+
+    files = [os.path.join(run_path, f)
+             for f in os.listdir(run_path)
+             if f.endswith('.h5') and re.match(pattern, f)]
+
+    if not files:
+        return
+    data_path = "data.adc" if dettype == "JUNGFRAU" else "image.data"
+
+    dc = DataCollection.from_paths(files).select(
+        [("*/DET/RECEIVER-2*", data_path)]).select_trains(by_index[0:3500])
+
+    return dc
+
+
+def control_data_collection(proposal, run, data="raw"):
+    """
+    proposal: str, int
+        A proposal number, such as 2012, '2012', 'p002012', or a path such as
+        '/gpfs/exfel/exp/SPB/201701/p002012'.
+    run: str, int
+        A run number such as 243, '243' or 'r0243'.
+    data: str ['raw', 'proc']
+        Default: 'raw'
+    """
+    run_path = find_proposal(proposal, run, data=data)
+    files = [f for f in os.listdir(run_path) if f.endswith('.h5')]
+    files = [os.path.join(run_path, f)
+             for f in fnmatch.filter(files, '*DA*')]
+
+    if not files:
+        return
+
+    return DataCollection.from_paths(files)

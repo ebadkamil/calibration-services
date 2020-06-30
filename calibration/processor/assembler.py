@@ -78,6 +78,10 @@ class ImageAssembler(object):
         def assemble_image(self, train_data,
             pulse_ids=None, dark_data={}, use_out_arr=False):
 
+            if not train_data:
+                print("Train data is empty")
+                return
+
             pulse_ids = ":" if pulse_ids is None else pulse_ids
             pulses = parse_ids(pulse_ids)
 
@@ -240,6 +244,9 @@ class ImageAssembler(object):
                 try:
                     image = train_data[source]["data.adc"]
                 except KeyError:
+                    return
+
+                if image.shape[0] == 0:
                     return
 
                 if pulses != [-1] and image.shape[0] != 0:
