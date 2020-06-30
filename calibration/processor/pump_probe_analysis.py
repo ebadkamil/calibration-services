@@ -7,11 +7,7 @@ All rights reserved.
 """
 
 from collections import OrderedDict
-from enum import IntEnum
-import fnmatch
-import os.path as osp
-import os
-import re
+
 from scipy import constants
 
 import numpy as np
@@ -96,6 +92,7 @@ class PumpProbeAnalysis:
         self.fom = None
         self._prev_on = None
 
+    @timeit("Pump probe analysis")
     def process(self, **kwargs):
         """
         Parameters

@@ -14,7 +14,7 @@ import os.path as osp
 import numpy as np
 import psutil as ps
 
-from karabo_data import DataCollection, by_index
+from extra_data import DataCollection, by_index
 
 
 def timeit(name):
