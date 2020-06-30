@@ -28,7 +28,26 @@ from ..helpers import (
 
 
 class PumpProbeAnalysis:
+    """Class to perform Pump Probe analysis
 
+    Parameters
+    ----------
+    proposal: str, int
+        A proposal number, such as 2012, '2012', 'p002012', or a path such as
+        '/gpfs/exfel/exp/SPB/201701/p002012'.
+    run: str, int
+        A run number such as 243, '243' or 'r0243'.
+    dettype: (str) AGIPD, LPD
+    pp_mode: (str) either "even_odd", "odd_even", or "same_train"
+    analysis_type: (str) either "roi" or "azimuthal"
+    on_pulses, off_pulses: (str) Only when pp_mode is set to "same_train"
+        "start:stop:step" to select indices with certain step size
+        "1,2,3" comma separated pulse index to select specific pulses
+        "1,2,3, 5:10" mix of above two
+        on and off pulses should not intersect
+    data: (str) "raw" or "proc"
+        Default is "proc"
+    """
     _pp_mode = OrderedDict({
         "even_odd": PumpProbeMode.EVEN_ODD,
         "odd_even": PumpProbeMode.ODD_EVEN,
@@ -79,6 +98,27 @@ class PumpProbeAnalysis:
         self._prev_on = None
 
     def process(self, **kwargs):
+        """
+        Parameters
+        ----------
+        If analysis_type is "roi"
+            Required key word arguments:
+                kwargs.get("roi"): list [x0, x1, y0, y1]
+                kwargs.get("fom_type"): either "mean" or "proj"
+            Optional:
+                kwargs.get("bkg"): list [bx0, bx1, by0, by1] for
+                    background subtraction
+                kwargs.get("auc"): [x0, x1] area under curve will be used
+                    to evaluate figure of merit
+        Return
+        ------
+        on_data, off_data: xarray
+            The first axis of the data will be labelled with the "trainId"
+            Shape of numpy array: (n_trains, ...)
+        fom: xarray
+            The first axis of the data will be labelled with the "trainId"
+            Shape of numpy array: (n_trains, 1)
+        """
         if self.analysis_type == AnalysisType.ROI:
             roi = kwargs.get("roi", None)
             background = kwargs.get("bkg", None)
@@ -107,7 +147,7 @@ class PumpProbeAnalysis:
             on_image, off_image = self._on_off_data(tid, assembled)
 
             if on_image is not None and off_image is not None:
-                train_ids.append(tid)
+
                 if self.analysis_type == AnalysisType.ROI:
                     x0, x1, y0, y1 = roi
                     signal_on = on_image[..., x0:x1, y0:y1]
@@ -144,6 +184,7 @@ class PumpProbeAnalysis:
                     fom = np.trapz(*slice_curve(
                                 diff, np.arange(diff.shape[-1]), *auc))
 
+                train_ids.append(tid)
                 on.append(on_fom)
                 off.append(off_fom)
                 foms.append(fom)
@@ -165,6 +206,22 @@ class PumpProbeAnalysis:
             return self.on, self.off, self.fom
 
     def fom_scan(self, src, prop):
+        """FOM  wrt to scan variable.
+           Scan variable should be one value per train id.
+        src: str
+            karabo device ID
+        prop: str
+            karabo property
+        Return:
+        -------
+        scan_data: 1D numpy array of scan points
+        mean_data: ndarray
+            Mean value of FOM for each scan_data
+        std_data: ndarray
+            standard deviation of FOM for each scan_data
+        fig: plotly Figure object
+            use fig to render in notebooks
+        """
         if self.fom is None:
             print("Figure of merit is not available")
             return

@@ -22,7 +22,7 @@ from ..helpers import find_proposal, timeit
 
 class AzimuthalIntegration(object):
     """
-    Attributes:
+    Parameters:
     -----------
     proposal: str, int
         A proposal number, such as 2012, '2012', 'p002012', or a path such as

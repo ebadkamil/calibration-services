@@ -143,7 +143,9 @@ def get_virtual_memory():
 
 
 def find_proposal(proposal, run, data='raw'):
-    """Access EuXFEL data on the Maxwell cluster by proposal and run number.
+    """From EXtra-data
+
+    Access EuXFEL data on the Maxwell cluster by proposal and run number.
     Parameters
     ----------
     proposal: str, int
@@ -187,7 +189,8 @@ def find_proposal(proposal, run, data='raw'):
 
 
 def slice_curve(y, x, x_min=None, x_max=None):
-    """Slice an x-y plot based on the range of x values.
+    """From EXtra-foam
+    Slice an x-y plot based on the range of x values.
 
     x is assumed to be monotonically increasing.
 
