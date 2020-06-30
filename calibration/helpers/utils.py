@@ -5,6 +5,7 @@ Author: Ebad Kamil <ebad.kamil@xfel.eu>
 Copyright (C) European X-Ray Free-Electron Laser Facility GmbH.
 All rights reserved.
 """
+import fnmatch
 from functools import wraps
 from glob import iglob
 from itertools import chain
@@ -12,6 +13,8 @@ import os.path as osp
 
 import numpy as np
 import psutil as ps
+
+from karabo_data import DataCollection, by_index
 
 
 def timeit(name):
@@ -242,3 +245,24 @@ def detector_data_collection(proposal, run, dettype, data='raw'):
         [("*/DET/RECEIVER-2*", data_path)]).select_trains(by_index[0:3500])
 
     return dc
+
+
+def control_data_collection(proposal, run, data="raw"):
+    """
+    proposal: str, int
+        A proposal number, such as 2012, '2012', 'p002012', or a path such as
+        '/gpfs/exfel/exp/SPB/201701/p002012'.
+    run: str, int
+        A run number such as 243, '243' or 'r0243'.
+    data: str ['raw', 'proc']
+        Default: 'raw'
+    """
+    run_path = find_proposal(proposal, run, data=data)
+    files = [f for f in os.listdir(run_path) if f.endswith('.h5')]
+    files = [os.path.join(run_path, f)
+             for f in fnmatch.filter(files, '*DA*')]
+
+    if not files:
+        return
+
+    return DataCollection.from_paths(files)

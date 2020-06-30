@@ -17,8 +17,6 @@ from scipy import constants
 import numpy as np
 import xarray as xr
 
-from karabo_data import DataCollection, by_index
-
 from .assembler import ImageAssembler
 from .descriptors import MovingAverage, PyFaiAzimuthalIntegrator
 from ..gui.plots import ScatterPlot
