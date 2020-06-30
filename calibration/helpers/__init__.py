@@ -1,13 +1,12 @@
 from .utils import (
-    pulse_filter, parse_ids, parse_le,
-    get_virtual_memory, find_proposal,
-    timeit, slice_curve, detector_data_collection)
-from .enums import PumpProbeMode, AnalysisType
+    control_data_collection, detector_data_collection, find_proposal,
+    get_virtual_memory, parse_ids, parse_le, pulse_filter
+    slice_curve, timeit)
+from .enums import AnalysisType, PumpProbeMode
 
 __all__ = [
-    "pulse_filter",
     "parse_ids",
-    "parse_le",
     "find_proposal",
     "timeit",
-    "slice_curve"]
+    "control_data_collection",
+    "detector_data_collection"]

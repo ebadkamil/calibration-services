@@ -23,8 +23,8 @@ from .assembler import ImageAssembler
 from .descriptors import MovingAverage, PyFaiAzimuthalIntegrator
 from ..gui.plots import ScatterPlot
 from ..helpers import (
-    AnalysisType, detector_data_collection, find_proposal, PumpProbeMode,
-    slice_curve, timeit)
+    AnalysisType, control_data_collection, detector_data_collection,
+    PumpProbeMode, slice_curve, timeit)
 
 
 class PumpProbeAnalysis:
@@ -86,9 +86,10 @@ class PumpProbeAnalysis:
 
         self.analysis_type = PumpProbeAnalysis._analysis_type[analysis_type]
 
-        self.run_path = find_proposal(proposal, run, data=data)
         self.run = detector_data_collection(
             proposal, run, dettype, data=data)
+        self.control = control_data_collection(
+            proposal, run, data=data)
 
         self.assembler =ImageAssembler.for_detector(dettype)
 
@@ -226,11 +227,11 @@ class PumpProbeAnalysis:
             print("Figure of merit is not available")
             return
 
-        files = [f for f in os.listdir(self.run_path) if f.endswith('.h5')]
-        files = [os.path.join(self.run_path, f)
-                 for f in fnmatch.filter(files, '*DA*')]
+        if self.control is None:
+            print("Control data collection object is not available")
+            return
 
-        scan_data = DataCollection.from_paths(files).get_array(src, prop)
+        scan_data = self.control.get_array(src, prop)
 
         assert len(scan_data.shape) == 1
 
