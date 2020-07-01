@@ -10,9 +10,11 @@ from functools import wraps
 from glob import iglob
 from itertools import chain
 import os.path as osp
+import os
 
 import numpy as np
 import psutil as ps
+import re
 
 from extra_data import DataCollection, by_index
 
@@ -242,7 +244,7 @@ def detector_data_collection(proposal, run, dettype, data='raw'):
     data_path = "data.adc" if dettype == "JUNGFRAU" else "image.data"
 
     dc = DataCollection.from_paths(files).select(
-        [("*/DET/RECEIVER-2*", data_path)]).select_trains(by_index[0:3500])
+        [("*/DET/*", data_path)])#.select_trains(by_index[0:3500])
 
     return dc
 
