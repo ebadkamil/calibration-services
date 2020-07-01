@@ -217,7 +217,7 @@ def slice_curve(y, x, x_min=None, x_max=None):
     return y[..., indices], x[indices]
 
 
-def detector_data_collection(proposal, run, dettype, data='raw'):
+def detector_data_collection(proposal, run, dettype, modno=None, data='raw'):
     """
     proposal: str, int
         A proposal number, such as 2012, '2012', 'p002012', or a path such as
@@ -230,10 +230,15 @@ def detector_data_collection(proposal, run, dettype, data='raw'):
     """
     dettype = dettype.upper()
     assert dettype in ["AGIPD", "LPD", "JUNGFRAU"]
-    run_path = find_proposal(proposal, run, data=data)
+
+    if dettype == "JUNGFRAU":
+        dettype = "JNGFR"
+
     pattern = f"(.+){dettype}(.+)"
-    if dettype == 'JUNGFRAU':
-        pattern = f"(.+)JNGFR(.+)"
+    if modno is not None:
+        pattern = f"(.+){dettype}{modno:02d}(.+)"
+
+    run_path = find_proposal(proposal, run, data=data)
 
     files = [os.path.join(run_path, f)
              for f in os.listdir(run_path)
@@ -241,10 +246,10 @@ def detector_data_collection(proposal, run, dettype, data='raw'):
 
     if not files:
         return
-    data_path = "data.adc" if dettype == "JUNGFRAU" else "image.data"
+    data_path = "data.adc" if dettype == "JNGFR" else "image.data"
 
     dc = DataCollection.from_paths(files).select(
-        [("*/DET/*", data_path)])#.select_trains(by_index[0:3500])
+        [("*/DET/*", data_path)])#.select_trains(by_index[0:300])
 
     return dc
 

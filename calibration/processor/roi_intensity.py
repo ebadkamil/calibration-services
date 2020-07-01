@@ -11,7 +11,6 @@ import os
 import numpy as np
 import xarray as xr
 
-from extra_data import DataCollection
 from .base_roi_intensity import BaseRoiIntensity
 
 
@@ -44,18 +43,15 @@ class ModuleRoiIntensity(BaseRoiIntensity):
                 lambda x, y: x.shape == y.shape, self.roi_images, dark_roi_images)):
                 raise ValueError("Shapes of image and dark data don't match")
 
-            self.roi_images = [ 
-                self.roi_images[i] - dark_roi_images[i] 
+            self.roi_images = [
+                self.roi_images[i] - dark_roi_images[i]
                 for i in range(len(self.roi_images))]
 
     def normalize(self, normalizer):
         """Normalize roi_intensity with pulse resolved normalizer"""
         src, prop = normalizer
-        files = [f for f in os.listdir(self.run_path) if f.endswith('.h5')]
-        files = [os.path.join(self.run_path, f)
-                 for f in fnmatch.filter(files, '*DA*')]
 
-        normalizer_data = DataCollection.from_paths(files).get_array(
+        normalizer_data = self.control.get_array(
             src, prop, extra_dims=['mem_cells'])
 
         if self.pulses != [-1]:
@@ -65,7 +61,7 @@ class ModuleRoiIntensity(BaseRoiIntensity):
 
         self.roi_intensity, normalizer_data = xr.align(
             self.roi_intensity, normalizer_data)
-        
+
         self.roi_intensity /= normalizer_data
 
 
@@ -85,8 +81,8 @@ class GainAdjustedRoiIntensity(BaseRoiIntensity):
             gain_medium = gain['medium']
             gain_low = gain['low']
 
-            if all([isinstance(high, dict), 
-                    isinstance(medium, dict), 
+            if all([isinstance(high, dict),
+                    isinstance(medium, dict),
                     isinstance(low, dict)]):
                 high = high[self.modno]
                 medium = medium[self.modno]
@@ -119,9 +115,9 @@ class GainAdjustedRoiIntensity(BaseRoiIntensity):
                 high = high_roi_images[i]
                 medium = medium_roi_images[i]
                 low = low_roi_images[i]
-                
+
                 currim = np.zeros_like(image)
-            
+
                 # High gain correction
                 corrim = (image - high) * gain_high
                 currim[np.where(image <= 4096)] = corrim[np.where(image <= 4096)]

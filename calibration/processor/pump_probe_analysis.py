@@ -66,8 +66,8 @@ class PumpProbeAnalysis:
         assert pp_mode in PumpProbeAnalysis._pp_mode.keys()
         assert analysis_type in PumpProbeAnalysis._analysis_type.keys()
 
-        self.dettype = dettype.upper()
-        assert self.dettype in ["AGIPD", "LPD", "JUNGFRAU"]
+        dettype = dettype.upper()
+        assert dettype in ["AGIPD", "LPD", "JUNGFRAU"]
 
         self.pp_mode = PumpProbeAnalysis._pp_mode[pp_mode]
 

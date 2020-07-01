@@ -13,8 +13,6 @@ from scipy import constants
 import numpy as np
 import xarray as xr
 
-from extra_data import DataCollection
-
 from .assembler import ImageAssembler
 from .descriptors import MovingAverage, PyFaiAzimuthalIntegrator
 from ..helpers import (
