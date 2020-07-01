@@ -13,11 +13,10 @@ from scipy import constants
 import numpy as np
 import xarray as xr
 
-from extra_data import DataCollection
-
 from .assembler import ImageAssembler
 from .descriptors import MovingAverage, PyFaiAzimuthalIntegrator
-from ..helpers import find_proposal, timeit
+from ..helpers import (
+    detector_data_collection, timeit)
 
 
 class AzimuthalIntegration(object):
@@ -39,8 +38,10 @@ class AzimuthalIntegration(object):
                                  intg_rng=[0.2, 5],
                                  intg_method='BBox',
                                  intg_pts=512)
-
+    data: (str) "raw" or "proc"
+        Default is "proc"
     window: (int) Moving average window size
+
     momentum: xarray
         Labelled xarray dims = ("trainId, "int_pts")
         Shape of numpy array: (n_trains, n_points)
@@ -54,12 +55,10 @@ class AzimuthalIntegration(object):
     _azimuthal_integrator = PyFaiAzimuthalIntegrator()
     _azimuthal_integrator_ma = MovingAverage()
 
-    def __init__(self, proposal, run, dettype, ai_config, window=1):
-
+    def __init__(self, proposal, run, dettype, ai_config, data='proc', window=1):
+        dettype = dettype.upper()
         assert dettype in ["AGIPD", "LPD"]
 
-        self.run_path = find_proposal(proposal, run)
-        self.dettype = dettype
         # Set properties of _azimuthal_integrator descriptor
         self.__class__._azimuthal_integrator.distance = ai_config['distance']
         self.__class__._azimuthal_integrator.wavelength = \
@@ -80,7 +79,10 @@ class AzimuthalIntegration(object):
         # Set window size for moving avg _azimuthal_integrator_ma descriptor
         self.__class__._azimuthal_integrator_ma.window = window
 
-        self._image_assembler = ImageAssembler.for_detector(self.dettype)
+        self._image_assembler = ImageAssembler.for_detector(dettype)
+
+        self.run = detector_data_collection(
+            proposal, run, dettype, data=data)
 
         self.momentums = None
         self.intensities = None
@@ -106,26 +108,14 @@ class AzimuthalIntegration(object):
         del self._azimuthal_integrator
         del self._azimuthal_integrator_ma
 
-        pattern = f"(.+){self.dettype}(.+)"
-
-        files = [os.path.join(self.run_path, f)
-                 for f in os.listdir(self.run_path)
-                 if f.endswith('.h5') and re.match(pattern, f)]
-
-        if not files:
-            return
-
-        run = DataCollection.from_paths(files).select(
-            [("*/DET/*", "image.data")])
-
         if train_index is not None:
-            run = run.select_trains(train_index)
+            self.run = self.run.select_trains(train_index)
 
         momentums = []
         intensities = []
         train_ids = []
 
-        for tid, data in run.trains():
+        for tid, data in self.run.trains():
             # assemble images
             assembled = self._image_assembler.assemble_image(
                 data,

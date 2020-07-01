@@ -15,12 +15,12 @@ import numpy as np
 import plotly.graph_objects as go
 import xarray as xr
 
-from extra_data import DataCollection, by_index, H5File
-
 from .descriptors import MovingAverage
 
 from ..gui.plots import ScatterPlot
-from ..helpers import pulse_filter, parse_ids, find_proposal, timeit
+from ..helpers import (
+    control_data_collection, detector_data_collection,
+    parse_ids, timeit)
 
 
 class BaseRoiIntensity(object):
@@ -50,10 +50,16 @@ class BaseRoiIntensity(object):
             modno = int(modno)
 
         assert modno in range(16)
+        dettype = dettype.upper()
         assert dettype in ["AGIPD", "LPD"]
-        self.modno = modno
-        self.run_path = find_proposal(proposal, run)
+
+        self.run = detector_data_collection(
+            proposal, run, dettype, modno=modno)
+        self.control = control_data_collection(
+            proposal, run)
+
         self.dettype = dettype
+        self.modno = modno
 
         self.__class__._intensity_ma.window = window
         self.rois = None
@@ -94,24 +100,14 @@ class BaseRoiIntensity(object):
 
         # Reset moving average just in case if called twice for same instance
         del self._intensity_ma
-        pattern = f"(.+){self.dettype}{self.modno:02d}(.+)"
 
-        files = [os.path.join(self.run_path, f)
-                 for f in os.listdir(self.run_path)
-                 if f.endswith('.h5') and re.match(pattern, f)]
-
-        if not files:
-            return
-
-        run = DataCollection.from_paths(files)
-
-        module = [key for key in run.instrument_sources
+        module = [key for key in self.run.instrument_sources
                   if re.match(r"(.+)/DET/(.+):(.+)", key)]
 
         if len(module) != 1:
             return
 
-        run = run.select([(module[0], "image.data")])# .select_trains(by_index[100:200])
+        self.run = self.run.select([(module[0], "image.data")])
 
         pulse_ids = ":" if pulse_ids is None else pulse_ids
         self.pulses = parse_ids(pulse_ids)
@@ -120,7 +116,7 @@ class BaseRoiIntensity(object):
         intensities = []
         train_ids = []
         intensities_ma = []
-        for tid, data in run.trains():
+        for tid, data in self.run.trains():
             if self.dettype == 'LPD':
                 image = np.squeeze(
                     data[module[0]]["image.data"], axis=1) # (pulses, 1, ss, fs)
@@ -188,11 +184,12 @@ class BaseRoiIntensity(object):
         if self.roi_intensity is None:
             print("Roi intensity not available")
             return
-        files = [f for f in os.listdir(self.run_path) if f.endswith('.h5')]
-        files = [os.path.join(self.run_path, f)
-                 for f in fnmatch.filter(files, '*DA*')]
 
-        scan_data = DataCollection.from_paths(files).get_array(src, prop)
+        if self.control is None:
+            print("Control data collection object is not available")
+            return
+
+        scan_data = self.control.get_array(src, prop)
 
         assert len(scan_data.shape) == 1
 
