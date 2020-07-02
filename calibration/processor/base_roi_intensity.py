@@ -115,7 +115,7 @@ class BaseRoiIntensity(object):
 
         intensities = []
         train_ids = []
-        intensities_ma = []
+
         for tid, data in self.run.trains():
             if self.dettype == 'LPD':
                 image = np.squeeze(
@@ -151,8 +151,6 @@ class BaseRoiIntensity(object):
             self._intensity_ma = intensity
 
             intensities.append(intensity)
-            #get _intensity_ma and append to intensitie_ma
-            intensities_ma.append(self._intensity_ma)
             train_ids.append(tid)
 
         if intensities:
@@ -162,12 +160,12 @@ class BaseRoiIntensity(object):
                 data=np.stack(intensities), dims=dims, coords=coords)
 
             self.roi_intensity = data
-            self.roi_intensity_ma = xr.DataArray(
-                data=np.stack(intensities_ma), dims=dims, coords=coords)
+            # get moving average data
+            self.roi_intensity_ma = self._intensity_ma
 
             if use_normalizer is not None:
                 self.normalize(use_normalizer)
-            return self.roi_intensity_ma
+            return self.roi_intensity, self.roi_intensity_ma
 
     def plot_scan(self, src, prop):
         """Plot roi_intensity wrt to scan variable.
