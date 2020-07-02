@@ -17,7 +17,7 @@ import psutil as ps
 import re
 
 from extra_data import DataCollection, by_index
-
+from ..config import config
 
 def timeit(name):
     def profile(original):
@@ -217,7 +217,8 @@ def slice_curve(y, x, x_min=None, x_max=None):
     return y[..., indices], x[indices]
 
 
-def detector_data_collection(proposal, run, dettype, modno=None, data='raw'):
+def detector_data_collection(proposal, run, dettype,
+                             modno=None, data='raw'):
     """
     proposal: str, int
         A proposal number, such as 2012, '2012', 'p002012', or a path such as
@@ -238,8 +239,10 @@ def detector_data_collection(proposal, run, dettype, modno=None, data='raw'):
     if modno is not None:
         pattern = f"(.+){dettype}{modno:02d}(.+)"
 
-    run_path = find_proposal(proposal, run, data=data)
-
+    if not config["test_case"]:
+        run_path = find_proposal(proposal, run, data=data)
+    else:
+        run_path = f"/{proposal}/{run}"
     files = [os.path.join(run_path, f)
              for f in os.listdir(run_path)
              if f.endswith('.h5') and re.match(pattern, f)]
@@ -264,7 +267,11 @@ def control_data_collection(proposal, run, data="raw"):
     data: str ['raw', 'proc']
         Default: 'raw'
     """
-    run_path = find_proposal(proposal, run, data=data)
+    # run_path = find_proposal(proposal, run, data=data)
+    if not config["test_case"]:
+        run_path = find_proposal(proposal, run, data=data)
+    else:
+        run_path = f"/{proposal}/{run}"
     files = [f for f in os.listdir(run_path) if f.endswith('.h5')]
     files = [os.path.join(run_path, f)
              for f in fnmatch.filter(files, '*DA*')]
