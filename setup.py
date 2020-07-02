@@ -37,7 +37,7 @@ setup(name="calibration",
           ],
       },
       install_requires=[
-           'extra_data>=1.1.0',
+           'extra_data>=1.2.0',
            'extra_geom>=0.9.0',
            'dash>=1.6.1',
            'dash-daq>=0.3.1',
