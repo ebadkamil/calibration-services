@@ -55,6 +55,7 @@ class ImageAssembler(object):
             self._quad_prositions = quad_prositions
             self.geom = None
             self.out_array = None
+            self._n_images = None
 
         def _get_modules_data(train_data, pulses, dark_data={}):
             """stack modules data together from train_dictionary
@@ -87,19 +88,22 @@ class ImageAssembler(object):
 
             modules_data = self._get_modules_data(
                 train_data, pulses, dark_data=dark_data)
+
             if modules_data is None:
                 return
 
             self.get_geom_object()
 
             if self.geom is not None:
+                image_dtype = modules_data.dtype
+                n_images = (modules_data.shape[0], )
 
-                if use_out_arr and self.out_array is None:
-                    image_dtype = modules_data.dtype
-                    n_images = (modules_data.shape[0], )
+                if use_out_arr:
+                    if self.out_array is None or self._n_images != n_images:
+                        self._n_images = n_images
 
-                    self.out_array = self.geom.output_array_for_position_fast(
-                        extra_shape=n_images, dtype=image_dtype)
+                        self.out_array = self.geom.output_array_for_position_fast(
+                            extra_shape=n_images, dtype=image_dtype)
 
                 assembled, _ = self.geom.position_all_modules(
                     modules_data, out=self.out_array)

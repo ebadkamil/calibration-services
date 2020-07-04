@@ -58,6 +58,13 @@ class TestModuleRoiIntensity(unittest.TestCase):
                 rois=rois, pulse_ids=pulse_ids,
                 dark_run=np.random.rand(4, 512, 128))
 
+        # dark data and image data shape don't match
+        with self.assertRaisesRegex(
+            ValueError, "Shapes of image and dark data don't match"):
+            _, _= self.instance.eval_module_roi_intensity(
+                dark_run=self.dark_run)
+
+
     def test_scan(self):
         rois = [[0, 128, 0, 128], [0, 64, 64, 128]]
         pulse_ids = "0:20:2"
@@ -66,6 +73,6 @@ class TestModuleRoiIntensity(unittest.TestCase):
             rois=rois, pulse_ids=pulse_ids)
 
         fig = self.instance.plot_scan("SPB_XTD9_XGM/DOOCS/MAIN",
-                                    "pulseEnergy.photonFlux.value")
+                                      "pulseEnergy.photonFlux.value")
 
         self.assertIsNotNone(fig)

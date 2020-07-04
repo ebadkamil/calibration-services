@@ -18,7 +18,7 @@ from .descriptors import MovingAverage, PyFaiAzimuthalIntegrator
 from ..gui.plots import ScatterPlot
 from ..helpers import (
     AnalysisType, control_data_collection, detector_data_collection,
-    PumpProbeMode, slice_curve, timeit)
+    parse_ids, PumpProbeMode, slice_curve, timeit)
 
 
 class PumpProbeAnalysis:
@@ -137,7 +137,7 @@ class PumpProbeAnalysis:
         foms = []
 
         for tid, data in self.run.trains():
-            assembled = self.assembler.assemble_image(data)
+            assembled = self.assembler.assemble_image(data, use_out_arr=True)
             if assembled is None:
                 continue
             on_image, off_image = self._on_off_data(tid, assembled)
@@ -164,7 +164,7 @@ class PumpProbeAnalysis:
                         # Normalize off spectra with area under curve
                         off_fom /= np.trapz(*slice_curve(
                                 off_fom, np.arange(off_fom.shape[-1])))
-                    else:
+                    elif fom_type == 'mean':
                         on_fom = np.nanmean(signal_on, axis=(-1, -2))
                         off_fom = np.nanmean(signal_off, axis=(-1, -2))
 
@@ -172,6 +172,7 @@ class PumpProbeAnalysis:
                     continue
 
                 diff = np.abs(on_fom - off_fom)
+                #TODO: Diff will be number in case of big detectors.
                 if diff.shape[-1] == 1:
                     # Just a number in case of mean roi
                     fom = diff
