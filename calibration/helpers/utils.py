@@ -252,7 +252,7 @@ def detector_data_collection(proposal, run, dettype,
     data_path = "data.adc" if dettype == "JNGFR" else "image.data"
 
     dc = DataCollection.from_paths(files).select(
-        [("*/DET/*", data_path)])#.select_trains(by_index[0:300])
+        [("*/DET/*", data_path)])#.select_trains(by_index[0:2000])
 
     return dc
 
