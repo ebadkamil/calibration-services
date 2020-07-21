@@ -253,7 +253,6 @@ def detector_data_collection(proposal, run, dettype,
 
     dc = DataCollection.from_paths(files).select(
         [("*/DET/*", data_path)])#.select_trains(by_index[0:2000])
-
     return dc
 
 
@@ -283,8 +282,8 @@ def control_data_collection(proposal, run, data="raw"):
 
 
 def get_mean_image(proposal, run, dettype,
-                   modno=None, data='raw', train_index=by_index[:]):
-    from ..processor import ImageAssembler
+                   modno=None, data='raw',
+                   pulse_ids=None, train_index=by_index[:]):
     """
     proposal: str, int
         A proposal number, such as 2012, '2012', 'p002012', or a path such as
@@ -294,6 +293,12 @@ def get_mean_image(proposal, run, dettype,
     dettype: (str) AGIPD, LPD, JungFrau (case insensitive)
     data: str ['raw', 'proc']
         Default: 'raw'
+    pulse_ids: str
+            For eg. ":" to select all pulses in a train
+                    "start:stop:step" to select indices with certain step size
+                    "1,2,3" comma separated pulse index to select specific pulses
+                    "1,2,3, 5:10" mix of above two
+            Default: all pulses ":"
     train_index: by_index[first_train:last_train] slicer from extra_data
         Default: by_index[:] all trains in a run
 
@@ -304,6 +309,8 @@ def get_mean_image(proposal, run, dettype,
         ndarray: Shape: (n_pulses, n_modules, slow_scan, fast_scan)
         Dimensions with value 1 are squeezed
     """
+    from ..processor import ImageAssembler
+
     dettype = dettype.upper()
     assert dettype in ["AGIPD", "LPD", "JUNGFRAU"]
 
@@ -320,11 +327,11 @@ def get_mean_image(proposal, run, dettype,
     train_counts = 0
 
     for tid, data in run.trains():
-        assembled = assembler.assemble_image(data, use_out_arr=True)
+        assembled = assembler.assemble_image(
+            data, pulse_ids=pulse_ids, use_out_arr=True)
 
         if assembled is None:
             continue
-
         if assembled.shape[0] == 0:
             continue
 
