@@ -212,7 +212,7 @@ class BaseRoiIntensity(object):
             mean_align['scan_data'],
             mean_align['roi_intensity'],
             yerror=std_align['roi_intensity'])
-        return fig
+        return mean_align, std_align, fig
 
     def correct(self, offset=None, gain=None):
         """Hook to use for correction of images

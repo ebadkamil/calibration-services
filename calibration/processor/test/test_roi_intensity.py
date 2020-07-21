@@ -72,7 +72,7 @@ class TestModuleRoiIntensity(unittest.TestCase):
         _, _= self.instance.eval_module_roi_intensity(
             rois=rois, pulse_ids=pulse_ids)
 
-        fig = self.instance.plot_scan("SPB_XTD9_XGM/DOOCS/MAIN",
+        _, _, fig = self.instance.plot_scan("SPB_XTD9_XGM/DOOCS/MAIN",
                                       "pulseEnergy.photonFlux.value")
 
         self.assertIsNotNone(fig)

@@ -253,7 +253,6 @@ def detector_data_collection(proposal, run, dettype,
 
     dc = DataCollection.from_paths(files).select(
         [("*/DET/*", data_path)])#.select_trains(by_index[0:2000])
-
     return dc
 
 
@@ -280,3 +279,66 @@ def control_data_collection(proposal, run, data="raw"):
         return
 
     return DataCollection.from_paths(files)
+
+
+def get_mean_image(proposal, run, dettype,
+                   modno=None, data='raw',
+                   pulse_ids=None, train_index=by_index[:]):
+    """
+    proposal: str, int
+        A proposal number, such as 2012, '2012', 'p002012', or a path such as
+        '/gpfs/exfel/exp/SPB/201701/p002012'.
+    run: str, int
+        A run number such as 243, '243' or 'r0243'.
+    dettype: (str) AGIPD, LPD, JungFrau (case insensitive)
+    data: str ['raw', 'proc']
+        Default: 'raw'
+    pulse_ids: str
+            For eg. ":" to select all pulses in a train
+                    "start:stop:step" to select indices with certain step size
+                    "1,2,3" comma separated pulse index to select specific pulses
+                    "1,2,3, 5:10" mix of above two
+            Default: all pulses ":"
+    train_index: by_index[first_train:last_train] slicer from extra_data
+        Default: by_index[:] all trains in a run
+
+    Return
+    ------
+    out: (ndarray, ndarray)
+        mean_image, std_image
+        ndarray: Shape: (n_pulses, n_modules, slow_scan, fast_scan)
+        Dimensions with value 1 are squeezed
+    """
+    from ..processor import ImageAssembler
+
+    dettype = dettype.upper()
+    assert dettype in ["AGIPD", "LPD", "JUNGFRAU"]
+
+    run = detector_data_collection(
+        proposal,
+        run, dettype,
+        modno=modno,
+        data=data).select_trains(train_index)
+
+    assembler = ImageAssembler.for_detector(dettype)
+
+    mean_image = 0
+    std = 0
+    train_counts = 0
+
+    for tid, data in run.trains():
+        assembled = assembler.assemble_image(
+            data, pulse_ids=pulse_ids, use_out_arr=True)
+
+        if assembled is None:
+            continue
+        if assembled.shape[0] == 0:
+            continue
+
+        train_counts += 1
+        mean_temp = mean_image
+        mean_image  = mean_image + (assembled - mean_image) / train_counts
+        std = std + (assembled - mean_temp) * (assembled - mean_image)
+
+    if train_counts != 0:
+        return mean_image.squeeze(), np.sqrt(std / train_counts).squeeze()
