@@ -56,6 +56,7 @@ Running a jupyter server on online cluster
         jupyter-notebook --port 8008 --no-browser --ip "*"
 
     Now open another terminal and do the port forwarding
+
         user@localmachine: ssh -L 8008:localhost:8008 user@bastion.desy.de -t ssh -L 8008:exflonc<NN>:8008 exflgateway
     
     Open your regular browser and paste the link that you copied before the last step.
@@ -69,6 +70,7 @@ Running a jupyter server on online cluster
         jupyter-notebook --port 8008 --no-browser
     
     Open another terminal and do the port forwarding
+    
         ssh -L 8008:localhost:8008 exflonc<NN>
 
    Open your regular browser and paste the link that you copied before the last step.
