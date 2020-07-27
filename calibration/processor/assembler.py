@@ -150,11 +150,16 @@ class ImageAssembler(object):
                     image = image.astype(np.float32)
 
                 if dark_data and image.shape[0] != 0:
-                    if pulses != [-1]:
-                        dark = dark_data[str(modno)][pulses, ...]
-                    else:
-                        dark = dark_data[str(modno)][0:image.shape[0], ...]
-                    image -= dark
+                    try:
+                        dark = dark_data[modno]
+                        if pulses != [-1]:
+                            dark = dark[pulses, ...]
+                        else:
+                            dark = dark[0:image.shape[0], ...]
+                        image -= dark
+                    except KeyError as ex:
+                        print(f"Dark for mod {modno} is not available")
+                        pass
 
                 train_data[source]["image.data"] = image
 
@@ -166,7 +171,7 @@ class ImageAssembler(object):
             try:
                 stacked_data = stack_detector_data(train_data, "image.data")
             except (ValueError, IndexError, KeyError) as e:
-                print(e)
+                print("Stacking Error: ", e)
                 return
 
             if stacked_data.shape[0] != 0:
@@ -210,11 +215,16 @@ class ImageAssembler(object):
                     image = image.astype(np.float32)
 
                 if dark_data and image.shape[0] != 0:
-                    if pulses != [-1]:
-                        dark = dark_data[str(modno)][pulses, ...]
-                    else:
-                        dark = dark_data[str(modno)][0:image.shape[0], ...]
-                    image -= dark
+                    try:
+                        dark = dark_data[modno]
+                        if pulses != [-1]:
+                            dark = dark[pulses, ...]
+                        else:
+                            dark = dark[0:image.shape[0], ...]
+                        image -= dark
+                    except KeyError as ex:
+                        print(f"Dark for mod {modno} is not available")
+                        pass
 
                 train_data[source]["image.data"] = image
 
@@ -227,7 +237,7 @@ class ImageAssembler(object):
             try:
                 stacked_data = stack_detector_data(train_data, "image.data")
             except (ValueError, IndexError, KeyError) as e:
-                print(e)
+                print("Stacking Error: ", e)
                 return
 
             if stacked_data.shape[0] != 0:
@@ -260,11 +270,16 @@ class ImageAssembler(object):
                     image = image.astype(np.float32)
 
                 if dark_data and image.shape[0] != 0:
-                    if pulses != [-1]:
-                        dark = dark_data[str(modno)][pulses, ...]
-                    else:
-                        dark = dark_data[str(modno)][0:image.shape[0], ...]
-                    image -= dark
+                    try:
+                        dark = dark_data[modno]
+                        if pulses != [-1]:
+                            dark = dark[pulses, ...]
+                        else:
+                            dark = dark[0:image.shape[0], ...]
+                        image -= dark
+                    except KeyError as ex:
+                        print(f"Dark for mod {modno} is not available")
+                        pass
 
                 train_data[source]["data.adc"] = image
 
@@ -277,7 +292,7 @@ class ImageAssembler(object):
             try:
                 stacked_data = stack_data(train_data, "data.adc")
             except (ValueError, IndexError, KeyError) as e:
-                print(e)
+                print("Stacking Error: ", e)
                 return
 
             if stacked_data.shape[0] != 0:

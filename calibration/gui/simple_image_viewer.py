@@ -186,7 +186,7 @@ class SimpleImageViewer:
                     if isinstance(node, h5py.Dataset):
                         m = re.search("(.+)module_(.+)/data", name)
                         if m is not None:
-                            self.dark_data[m.group(2)] = node[:]
+                            self.dark_data[int(m.group(2))] = node[:]
 
                 with h5py.File(dark_path, 'r') as f:
                     f.visititems(iterate)
