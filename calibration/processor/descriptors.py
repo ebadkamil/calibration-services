@@ -340,8 +340,8 @@ class PyFaiAzimuthalIntegrator(object):
 
     @user_mask.setter
     def user_mask(self, val):
-        if not isinstance(val, np.ndarray) or val.dtype != np.uint8:
-            raise ValueError("Data type of user mask must be np.uint8")
+        if val is not None and (not isinstance(val, np.ndarray) or val.dtype != np.uint8): #noqa
+            raise ValueError("User mask must be ndarray of dtype np.uint8")
         self._user_mask = val
 
     @property
@@ -350,6 +350,6 @@ class PyFaiAzimuthalIntegrator(object):
 
     @threshold_mask.setter
     def threshold_mask(self, val):
-        if not isinstance(val, tuple):
+        if val is not None and not isinstance(val, tuple):
             raise ValueError("Threshold mask must be a tuple (low, high)")
         self._threshold_mask = val
