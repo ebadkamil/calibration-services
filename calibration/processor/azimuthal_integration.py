@@ -151,3 +151,64 @@ class AzimuthalIntegration(object):
             self.intensities_ma = self._azimuthal_integrator_ma
 
             return self.momentums, self.intensities, self.intensities_ma
+
+
+class ImageIntegrator:
+    """
+    Parameters:
+    -----------
+    ai_config: dict
+        For eg.:ai_config = dict(energy=9.3,
+                                 pixel_size=0.5e-3,
+                                 centrex=580,
+                                 centrey=620,
+                                 distance=0.2,
+                                 intg_rng=[0.2, 5],
+                                 intg_method='BBox',
+                                 intg_pts=512,
+                                 threshold_mask=(0,100),
+                                 user_mask=user_mask)
+        user_mask: ndarray (Same shape as image to integrate)
+
+    momentum: ndarray
+        Shape of numpy array: (n_points, )
+    intensities: ndarray
+        Shape of numpy array: (n_pulses, n_points)"""
+    constant = 1e-3 * constants.c * constants.h / constants.e
+
+    _azimuthal_integrator = PyFaiAzimuthalIntegrator()
+
+    def __init__(self, ai_config):
+
+        # Set properties of _azimuthal_integrator descriptor
+        self.__class__._azimuthal_integrator.distance = ai_config['distance']
+        self.__class__._azimuthal_integrator.wavelength = \
+            AzimuthalIntegration.constant / ai_config["energy"]
+        self.__class__._azimuthal_integrator.poni1 = \
+            ai_config["centrey"] * ai_config['pixel_size']
+        self.__class__._azimuthal_integrator.poni2 = \
+            ai_config["centrex"] * ai_config['pixel_size']
+        self.__class__._azimuthal_integrator.intg_method = \
+            ai_config['intg_method']
+        self.__class__._azimuthal_integrator.intg_rng = \
+            ai_config['intg_rng']
+        self.__class__._azimuthal_integrator.intg_pts = \
+            ai_config['intg_pts']
+        self.__class__._azimuthal_integrator.pixel_size = \
+            ai_config['pixel_size']
+        self.__class__._azimuthal_integrator.threshold_mask = \
+            ai_config.get('threshold_mask', None)
+        self.__class__._azimuthal_integrator.user_mask = \
+            ai_config.get('user_mask', None)
+
+        self.momentums = None
+        self.intensities = None
+
+    def integrate(self, image):
+        """
+        image: ndarray
+            Shape: (pulses, px, py)
+        """
+        self._azimuthal_integrator = image
+        self.momentums, self.intensities = self._azimuthal_integrator
+        return self.momentums, np.array(self.intensities)
