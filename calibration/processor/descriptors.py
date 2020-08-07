@@ -175,6 +175,8 @@ class PyFaiAzimuthalIntegrator(object):
         self._intg_rng = None
         self._intg_pts = None
         self._pixel_size = None
+        self._threshold_mask = None
+        self._user_mask = None
 
         self._momentum = None
         self._intensities = None
@@ -200,7 +202,22 @@ class PyFaiAzimuthalIntegrator(object):
         integ_points = self._intg_pts
         def _integrate(i):
             mask = np.zeros_like(data[i], dtype=np.uint8)
+            # Apply mask for nan
             mask[np.isnan(data[i])] = 1
+            # Apply threshold mask if provided
+            if self._threshold_mask is not None:
+                low, high = self._threshold_mask
+                mask[(data[i] < low) | (data[i] > high)] = 1
+            # Apply user provided mask
+            if self._user_mask is not None:
+                image_shape = data[i].shape
+                mask_shape = self._user_mask[i].shape
+                if image_shape == mask_shape:
+                    np.logical_or(mask, self._user_mask[i], out=mask)
+                else:
+                    print(f"User provided mask {mask_shape} and "
+                          f"image {image_shape} have different shapes")
+
             ret = itgt1d(data[i], integ_points, mask=mask)
             return ret.radial, ret.intensity
 
@@ -250,6 +267,8 @@ class PyFaiAzimuthalIntegrator(object):
 
     @distance.setter
     def distance(self, val):
+        if val < 0:
+            raise ValueError("Distance cannot be negative")
         self._distance = val
 
     @property
@@ -282,6 +301,10 @@ class PyFaiAzimuthalIntegrator(object):
 
     @intg_method.setter
     def intg_method(self, val):
+        _available_methods = ["numpy", "cython", "BBox", "lut",
+                              "csr", "nosplit_csr", "full_csr", "lut_ocl"]
+        if val not in _available_methods:
+            raise ValueError("Support available methods {}")
         self._intg_method = val
 
     @property
@@ -290,6 +313,9 @@ class PyFaiAzimuthalIntegrator(object):
 
     @intg_rng.setter
     def intg_rng(self, val):
+        start, stop = val
+        if start >= stop:
+            raise ValueError("Improper range")
         self._intg_rng = val
 
     @property
@@ -307,3 +333,23 @@ class PyFaiAzimuthalIntegrator(object):
     @pixel_size.setter
     def pixel_size(self, val):
         self._pixel_size = val
+
+    @property
+    def user_mask(self):
+        return self._user_mask
+
+    @user_mask.setter
+    def user_mask(self, val):
+        if not isinstance(val, np.ndarray) or val.dtype != np.uint8:
+            raise ValueError("Data type of user mask must be np.uint8")
+        self._user_mask = val
+
+    @property
+    def threshold_mask(self):
+        return self._threshold_mask
+
+    @threshold_mask.setter
+    def threshold_mask(self, val):
+        if not isinstance(val, tuple):
+            raise ValueError("Threshold mask must be a tuple (low, high)")
+        self._threshold_mask = val
