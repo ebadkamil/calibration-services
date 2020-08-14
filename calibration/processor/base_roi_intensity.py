@@ -49,7 +49,7 @@ class BaseRoiIntensity(object):
         if not isinstance(modno, int):
             modno = int(modno)
 
-        assert modno in range(16)
+        assert modno in range(17)
         dettype = dettype.upper()
         assert dettype in ["AGIPD", "LPD"]
 

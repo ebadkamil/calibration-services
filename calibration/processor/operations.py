@@ -58,7 +58,7 @@ def dark_offset(proposal, run, module_number, *,
             tuple: (mean_image, std)
     """
     path = find_proposal(proposal, run)
-    if module_number not in range(16):
+    if module_number not in range(17):
         print(f"Module number should be in range 0-15, got {module_number}")
         return
 
