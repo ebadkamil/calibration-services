@@ -27,7 +27,7 @@ def timeit(name):
             t0 = time.perf_counter()
             result = original(*args, **kwargs)
             print(f"Time to evaluate {name} "
-                  f" : {time.perf_counter() - t0} secs")
+                  f" : {time.perf_counter() - t0:.3f} secs")
             return result
         return wrapper
     return profile
