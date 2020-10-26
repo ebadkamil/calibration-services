@@ -273,7 +273,7 @@ def control_data_collection(proposal, run, data="raw"):
         run_path = f"/{proposal}/{run}"
     files = [f for f in os.listdir(run_path) if f.endswith('.h5')]
     files = [os.path.join(run_path, f)
-             for f in fnmatch.filter(files, '*DA*') + fnmatch.filter(files, '*CTRL*')] #noqa
+             for f in fnmatch.filter(files, '*DA*') + fnmatch.filter(files, '*CTRL*') + fnmatch.filter(files, '*K2G*')] #noqa
 
     if not files:
         return
