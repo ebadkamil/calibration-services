@@ -1,0 +1,14 @@
+language: python
+
+python:
+  - 3.6
+
+before_install:
+  - sudo apt update
+  - sudo apt -y install libopenmpi-dev
+
+install:
+  - pip install .[test]
+
+script:
+  - python setup.py test -v
