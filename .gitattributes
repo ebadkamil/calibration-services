@@ -1,0 +1,3 @@
+
+# Hide .ipynb files for github to show the repository as python and not Jupyter notebook.
+ *.ipynb linguist-vendored=true
