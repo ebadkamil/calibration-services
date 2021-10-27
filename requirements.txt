@@ -2,7 +2,7 @@ extra_data==1.1.0
 extra_geom==0.9.0
 dash==1.6.1
 dash-daq==0.3.1
-dask==2.7.0
+dask==2021.10.0
 dask-jobqueue==0.7.0
 ipywidgets==7.5.1
 mpi4py==3.0.2
